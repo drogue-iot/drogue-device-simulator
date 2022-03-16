@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
@@ -136,14 +137,11 @@ impl MqttClient {
         options: MqttConnectOptions,
         on_success: Callback<()>,
         on_failure: Callback<String>,
-    ) {
-        self.inner.connect(options, on_success, on_failure);
+    ) -> anyhow::Result<()> {
+        self.inner.connect(options, on_success, on_failure)
     }
 
-    pub fn disconnect(&self) {
-        self.inner.disconnect();
-    }
-
+    #[allow(unused)]
     pub fn is_connected(&self) -> bool {
         self.inner.is_connected()
     }
@@ -155,7 +153,8 @@ impl MqttClient {
         timeout: Duration,
         on_success: Callback<()>,
         on_failure: Callback<String>,
-    ) where
+    ) -> anyhow::Result<()>
+    where
         S: AsRef<str>,
     {
         let options = JsValue::from_serde(&SubscribeOptions {
@@ -172,15 +171,25 @@ impl MqttClient {
         js_sys::Reflect::set(
             &options,
             &JsValue::from_str("onFailure"),
-            &on_failure.into_js_value(),
-        );
+            on_failure.as_ref(),
+        )
+        .map_err(str_err)
+        .context("Failed to set 'onFailure' handler")?;
         js_sys::Reflect::set(
             &options,
             &JsValue::from_str("onSuccess"),
-            &on_success.into_js_value(),
-        );
+            on_success.as_ref(),
+        )
+        .map_err(str_err)
+        .context("failed to set 'onSuccess' handler")?;
+
+        // subscribe
 
         self.inner.client.subscribe(filter.as_ref(), &options);
+
+        // done
+
+        Ok(())
     }
 
     pub fn publish<T, P>(&self, topic: T, payload: P, qos: QoS, retain: bool)
@@ -217,7 +226,7 @@ impl Inner {
         options: MqttConnectOptions,
         on_success: Callback<()>,
         on_failure: Callback<String>,
-    ) {
+    ) -> anyhow::Result<()> {
         let MqttConnectOptions {
             username,
             password,
@@ -248,12 +257,16 @@ impl Inner {
             &options,
             &JsValue::from_str("onFailure"),
             on_failure.as_ref(),
-        );
+        )
+        .map_err(str_err)
+        .context("Failed to set 'onFailure' handler")?;
         js_sys::Reflect::set(
             &options,
             &JsValue::from_str("onSuccess"),
             on_success.as_ref(),
-        );
+        )
+        .map_err(str_err)
+        .context("failed to set 'onSuccess' handler")?;
 
         // keep reference
 
@@ -262,13 +275,11 @@ impl Inner {
 
         // perform connect
 
-        self.client.connect(&options)
-    }
+        self.client.connect(&options);
 
-    fn disconnect(&self) {
-        if self.is_connected() {
-            self.client.disconnect();
-        }
+        // done
+
+        Ok(())
     }
 
     fn is_connected(&self) -> bool {
@@ -328,4 +339,11 @@ fn convert_error(value: JsValue) -> String {
                 .map(|json| json.to_string())
         })
         .unwrap_or_else(|| "<unknown>".to_string())
+}
+
+fn str_err(err: JsValue) -> anyhow::Error {
+    match err.as_string() {
+        Some(err) => anyhow::Error::msg(err),
+        None => anyhow!("Unknown error"),
+    }
 }

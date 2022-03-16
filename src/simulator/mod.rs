@@ -240,7 +240,7 @@ impl Simulator {
                 self.state.state = State::Connecting;
                 self.send_state();
 
-                client.connect(
+                if let Err(err) = client.connect(
                     MqttConnectOptions {
                         username,
                         password,
@@ -251,7 +251,9 @@ impl Simulator {
                     },
                     self.link.callback(|_| Msg::Connected),
                     self.link.callback(|err| Msg::Disconnected(err)),
-                );
+                ) {
+                    log::warn!("Failed to start connecting: {err}");
+                }
 
                 Some(client)
             }
@@ -271,13 +273,15 @@ impl Simulator {
 
     fn subscribe(&mut self) {
         if let Some(client) = &self.client {
-            client.subscribe(
+            if let Err(err) = client.subscribe(
                 "command/inbox/#",
                 QoS::QoS0,
                 Duration::from_secs(5),
                 self.link.callback(|_| Msg::Subscribed),
                 self.link.callback(|err| Msg::Disconnected(err)),
-            );
+            ) {
+                log::warn!("Failed to trigger subscription: {err}");
+            };
         }
     }
 
