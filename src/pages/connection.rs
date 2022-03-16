@@ -140,7 +140,6 @@ impl Component for Connection {
                                 required=true
                                 label={"Connection type"}>
                                 <FormSelect<Protocol> variant={SelectVariant::Single(set_protocol)} ref={self.refs.protocol.clone()}>
-                                    <FormSelectOption<Protocol> selected={selected_protocol(Protocol::Http)} value={Protocol::Http} />
                                     <FormSelectOption<Protocol> selected={selected_protocol(Protocol::Mqtt)} value={Protocol::Mqtt} description="MQTT over WebSocket"  />
                                 </FormSelect<Protocol>>
                             </FormGroup>
