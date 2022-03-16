@@ -9,7 +9,7 @@ RUN trunk build --release
 
 FROM registry.access.redhat.com/ubi8/nginx-120:latest
 
-RUN pwd
+LABEL org.opencontainers.image.source="https://github.com/drogue-iot/drogue-device-simulator"
 
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /build/dist/ ./
