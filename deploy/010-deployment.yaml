@@ -1,0 +1,35 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: device-simulator
+  labels:
+    app.kubernetes.io/name: drogue-device-simulator
+    app.kubernetes.io/instance: simulator
+    app.kubernetes.io/component: frontend
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: drogue-device-simulator
+      app.kubernetes.io/instance: simulator
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: drogue-device-simulator
+        app.kubernetes.io/instance: simulator
+    spec:
+      containers:
+        - name: app
+          image: ghcr.io/drogue-iot/device-simulator:latest
+          imagePullPolicy: Always
+          ports:
+            - name: web
+              containerPort: 8080
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /

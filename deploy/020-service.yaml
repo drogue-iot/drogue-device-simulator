@@ -1,0 +1,16 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: device-simulator
+  labels:
+    app.kubernetes.io/name: drogue-device-simulator
+    app.kubernetes.io/instance: simulator
+    app.kubernetes.io/component: frontend
+spec:
+  selector:
+    app.kubernetes.io/name: drogue-device-simulator
+    app.kubernetes.io/instance: simulator
+  ports:
+    - port: 8080
+      name: web
+      targetPort: web
