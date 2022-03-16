@@ -1,6 +1,6 @@
 use super::Connector;
 use crate::connector::mqtt::{MqttClient, MqttConnectOptions, MqttMessage, QoS};
-use crate::settings::{Credentials, Settings};
+use crate::settings::Credentials;
 use crate::simulator::{Command, ConnectOptions, ConnectorOptions, SubscribeOptions};
 use std::time::Duration;
 
