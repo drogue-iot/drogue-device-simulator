@@ -272,7 +272,7 @@ impl Simulator {
     }
 
     fn subscribe(&mut self) {
-        if let Some(client) = &self.client {
+        if let Some(client) = &mut self.client {
             if let Err(err) = client.subscribe(
                 "command/inbox/#",
                 QoS::QoS0,

@@ -128,6 +128,9 @@ impl MqttClient {
 
                 _on_connect_success: None,
                 _on_connect_failure: None,
+
+                _on_subscribe_success: None,
+                _on_subscribe_failure: None,
             },
         }
     }
@@ -147,7 +150,7 @@ impl MqttClient {
     }
 
     pub fn subscribe<S>(
-        &self,
+        &mut self,
         filter: S,
         qos: QoS,
         timeout: Duration,
@@ -157,39 +160,8 @@ impl MqttClient {
     where
         S: AsRef<str>,
     {
-        let options = JsValue::from_serde(&SubscribeOptions {
-            qos: qos.into(),
-            timeout: Some(timeout.as_secs_f64()),
-        })
-        .unwrap();
-
-        let on_failure = Closure::wrap(
-            Box::new(move |err| on_failure.emit(convert_error(err))) as Box<dyn Fn(JsValue)>
-        );
-        let on_success = Closure::wrap(Box::new(move || on_success.emit(())) as Box<dyn Fn()>);
-
-        js_sys::Reflect::set(
-            &options,
-            &JsValue::from_str("onFailure"),
-            on_failure.as_ref(),
-        )
-        .map_err(str_err)
-        .context("Failed to set 'onFailure' handler")?;
-        js_sys::Reflect::set(
-            &options,
-            &JsValue::from_str("onSuccess"),
-            on_success.as_ref(),
-        )
-        .map_err(str_err)
-        .context("failed to set 'onSuccess' handler")?;
-
-        // subscribe
-
-        self.inner.client.subscribe(filter.as_ref(), &options);
-
-        // done
-
-        Ok(())
+        self.inner
+            .subscribe(filter, qos, timeout, on_success, on_failure)
     }
 
     pub fn publish<T, P>(&self, topic: T, payload: P, qos: QoS, retain: bool)
@@ -218,6 +190,9 @@ struct Inner {
 
     _on_connect_success: Option<Closure<dyn Fn()>>,
     _on_connect_failure: Option<Closure<dyn Fn(JsValue)>>,
+
+    _on_subscribe_success: Option<Closure<dyn Fn()>>,
+    _on_subscribe_failure: Option<Closure<dyn Fn(JsValue)>>,
 }
 
 impl Inner {
@@ -284,6 +259,57 @@ impl Inner {
 
     fn is_connected(&self) -> bool {
         self.client.connected()
+    }
+
+    pub fn subscribe<S>(
+        &mut self,
+        filter: S,
+        qos: QoS,
+        timeout: Duration,
+        on_success: Callback<()>,
+        on_failure: Callback<String>,
+    ) -> anyhow::Result<()>
+    where
+        S: AsRef<str>,
+    {
+        let options = JsValue::from_serde(&SubscribeOptions {
+            qos: qos.into(),
+            timeout: Some(timeout.as_secs_f64()),
+        })
+        .context("Failed to convert options")?;
+
+        let on_failure = Closure::wrap(
+            Box::new(move |err| on_failure.emit(convert_error(err))) as Box<dyn Fn(JsValue)>
+        );
+        let on_success = Closure::wrap(Box::new(move || on_success.emit(())) as Box<dyn Fn()>);
+
+        js_sys::Reflect::set(
+            &options,
+            &JsValue::from_str("onFailure"),
+            on_failure.as_ref(),
+        )
+        .map_err(str_err)
+        .context("Failed to set 'onFailure' handler")?;
+        js_sys::Reflect::set(
+            &options,
+            &JsValue::from_str("onSuccess"),
+            on_success.as_ref(),
+        )
+        .map_err(str_err)
+        .context("failed to set 'onSuccess' handler")?;
+
+        // keep reference
+
+        self._on_subscribe_success = Some(on_success);
+        self._on_subscribe_failure = Some(on_failure);
+
+        // subscribe
+
+        self.client.subscribe(filter.as_ref(), &options);
+
+        // done
+
+        Ok(())
     }
 
     fn publish<T, P>(&self, topic: T, payload: P, qos: QoS, retain: bool)
