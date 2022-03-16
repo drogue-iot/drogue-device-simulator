@@ -1,5 +1,8 @@
+use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
+
+pub const DEFAULT_CONFIG_KEY: &str = "drogue.io/device-simulator/defaultConfiguration";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,6 +24,13 @@ impl Default for Settings {
             application: "my-application".into(),
             device: "my-device".into(),
         }
+    }
+}
+
+impl Settings {
+    pub fn load() -> anyhow::Result<Self> {
+        let json: String = LocalStorage::get(DEFAULT_CONFIG_KEY)?;
+        Ok(serde_json::from_str(&json)?)
     }
 }
 

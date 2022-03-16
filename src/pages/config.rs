@@ -1,8 +1,9 @@
 use crate::data::{SharedDataBridge, SharedDataOps};
 use crate::pages::ApplicationPage;
-use crate::settings::Settings;
+use crate::settings::{Settings, DEFAULT_CONFIG_KEY};
 use crate::utils::to_yaml_model;
 use anyhow::anyhow;
+use gloo_storage::{LocalStorage, Storage};
 use gloo_utils::window;
 use monaco::api::{CodeEditorOptions, TextModel};
 use monaco::sys::editor::BuiltinTheme;
@@ -10,6 +11,7 @@ use monaco::yew::CodeEditor;
 use patternfly_yew::*;
 use serde_json::Value;
 use std::rc::Rc;
+use std::time::Duration;
 use url::Url;
 use yew::prelude::*;
 
@@ -32,6 +34,7 @@ pub enum Msg {
 
     Apply,
     Share,
+    Store,
 }
 
 impl Component for Configuration {
@@ -73,6 +76,10 @@ impl Component for Configuration {
             Msg::Share => {
                 self.share();
             }
+
+            Msg::Store => {
+                self.store();
+            }
         }
         true
     }
@@ -104,6 +111,11 @@ impl Component for Configuration {
                                     variant={Variant::Secondary}
                                     onclick={ctx.link().callback(|_|Msg::Share)}
                                 />
+                                <Button
+                                    label="Set as default"
+                                    variant={Variant::Secondary}
+                                    onclick={ctx.link().callback(|_|Msg::Store)}
+                                />
                             </ActionGroup>
                         </Form>
                     </StackItem>
@@ -114,13 +126,8 @@ impl Component for Configuration {
 }
 
 impl Configuration {
-    fn share(&self) {
-        if let Err(err) = self.do_share() {
-            toast_err("Failed to share settings", err);
-        }
-    }
-
-    fn do_share(&self) -> anyhow::Result<()> {
+    /// Get the current (editor) configuration as JSON string
+    fn as_json_str(&self) -> anyhow::Result<String> {
         let json: Value = serde_yaml::from_str(
             &self
                 .yaml
@@ -129,7 +136,17 @@ impl Configuration {
                 .get_value(),
         )?;
 
-        let json = json.to_string();
+        Ok(json.to_string())
+    }
+
+    fn share(&self) {
+        if let Err(err) = self.do_share() {
+            toast_err("Failed to share settings", err);
+        }
+    }
+
+    fn do_share(&self) -> anyhow::Result<()> {
+        let json = self.as_json_str()?;
 
         log::debug!("Settings: {}", json);
 
@@ -165,6 +182,30 @@ impl Configuration {
                         </p>
                     </Content>
                 </>
+            ),
+            actions: vec![],
+        });
+
+        Ok(())
+    }
+
+    fn store(&self) {
+        if let Err(err) = self.do_store() {
+            toast_err("Failed to store settings as default", err);
+        }
+    }
+
+    fn do_store(&self) -> anyhow::Result<()> {
+        LocalStorage::set(DEFAULT_CONFIG_KEY, self.as_json_str()?)?;
+
+        ToastDispatcher::new().toast(Toast {
+            title: "Stored default".to_string(),
+            r#type: Type::Success,
+            timeout: Some(Duration::from_secs(5)),
+            body: html!(
+                <Content>
+                    { "Configuration has been stored as the new default." }
+                </Content>
             ),
             actions: vec![],
         });

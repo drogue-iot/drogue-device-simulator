@@ -178,6 +178,7 @@ impl Component for ApplicationView {
 
 fn find_config() -> Option<Settings> {
     if let Some(cfg) = find_config_str() {
+        log::info!("Found provided settings");
         base64::decode_config(&cfg, base64::URL_SAFE)
             .map_err(|err| {
                 log::info!("Failed to decode base64 encoding: {err} was: {cfg}");
@@ -194,7 +195,11 @@ fn find_config() -> Option<Settings> {
                     })
                     .ok()
             })
+    } else if let Ok(settings) = Settings::load() {
+        log::info!("Found default settings");
+        Some(settings)
     } else {
+        log::info!("Not settings found");
         None
     }
 }

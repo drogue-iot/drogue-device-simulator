@@ -1,18 +1,14 @@
 mod mqtt;
 
-use crate::connector::mqtt::{MqttClient, MqttConnectOptions, MqttMessage, QoS};
+use crate::connector::mqtt::QoS;
 use crate::data::{self, SharedDataBridge};
-use crate::settings::Protocol::Mqtt;
 use crate::settings::{Credentials, Settings, Target};
 use crate::simulator::mqtt::MqttConnector;
-use anyhow::anyhow;
-use js_sys::Set;
 use std::{
     collections::HashSet,
     fmt::{Debug, Display, Formatter},
     ops::{Deref, DerefMut},
     rc::Rc,
-    time::Duration,
 };
 use yew::{html::Scope, Callback, Component};
 use yew_agent::*;
