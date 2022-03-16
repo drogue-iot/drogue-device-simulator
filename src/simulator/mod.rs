@@ -1,6 +1,12 @@
+mod mqtt;
+
 use crate::connector::mqtt::{MqttClient, MqttConnectOptions, MqttMessage, QoS};
 use crate::data::{self, SharedDataBridge};
+use crate::settings::Protocol::Mqtt;
 use crate::settings::{Credentials, Settings, Target};
+use crate::simulator::mqtt::MqttConnector;
+use anyhow::anyhow;
+use js_sys::Set;
 use std::{
     collections::HashSet,
     fmt::{Debug, Display, Formatter},
@@ -10,6 +16,31 @@ use std::{
 };
 use yew::{html::Scope, Callback, Component};
 use yew_agent::*;
+
+pub struct ConnectorOptions<'a> {
+    pub url: &'a str,
+    pub credentials: &'a Credentials,
+    pub settings: &'a Settings,
+
+    pub on_command: Callback<Command>,
+    pub on_connection_lost: Callback<String>,
+}
+
+pub struct ConnectOptions {
+    pub on_success: Callback<()>,
+    pub on_failure: Callback<String>,
+}
+
+pub struct SubscribeOptions {
+    pub on_success: Callback<()>,
+    pub on_failure: Callback<String>,
+}
+
+pub trait Connector {
+    fn connect(&mut self, opts: ConnectOptions) -> anyhow::Result<()>;
+    fn subscribe(&mut self, opts: SubscribeOptions) -> anyhow::Result<()>;
+    fn publish(&mut self, channel: String, payload: Vec<u8>, qos: QoS);
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Command {
@@ -26,7 +57,7 @@ pub struct Simulator {
     _settings_agent: SharedDataBridge<Settings>,
     settings: Settings,
 
-    client: Option<MqttClient>,
+    connector: Option<Box<dyn Connector>>,
     commands: Vec<Command>,
 }
 
@@ -36,7 +67,7 @@ pub enum Msg {
     Connected,
     Subscribed,
     Disconnected(String),
-    Message(MqttMessage),
+    Command(Command),
 }
 
 pub enum Request {
@@ -118,7 +149,7 @@ impl Agent for Simulator {
             },
             _settings_agent: settings_agent,
             settings: Default::default(),
-            client: None,
+            connector: None,
             commands: vec![],
         }
     }
@@ -132,7 +163,14 @@ impl Agent for Simulator {
             Msg::Connected => {
                 self.state.state = State::Subscribing;
                 self.send_state();
-                self.subscribe();
+                if let Some(connector) = &mut self.connector {
+                    if let Err(err) = connector.subscribe(SubscribeOptions {
+                        on_success: self.link.callback(|_| Msg::Subscribed),
+                        on_failure: self.link.callback(|err| Msg::Disconnected(err)),
+                    }) {
+                        log::warn!("Failed to subscribe: {err}");
+                    };
+                }
             }
             Msg::Subscribed => {
                 self.state.state = State::Connected;
@@ -142,12 +180,7 @@ impl Agent for Simulator {
                 self.state.state = State::Failed(err);
                 self.send_state();
             }
-            Msg::Message(msg) => {
-                let command = Command {
-                    name: msg.topic,
-                    payload: Some(msg.payload),
-                };
-
+            Msg::Command(command) => {
                 // record in history
 
                 self.commands.push(command.clone());
@@ -182,8 +215,8 @@ impl Agent for Simulator {
                 }
             }
             Request::Publish { channel, payload } => {
-                if let Some(client) = &self.client {
-                    client.publish(channel, payload, QoS::QoS0, false);
+                if let Some(connector) = &mut self.connector {
+                    connector.publish(channel, payload, QoS::QoS0);
                 }
             }
             Request::FetchHistory => {
@@ -217,72 +250,42 @@ impl Simulator {
 
         log::info!("Creating client");
 
-        let client = match &self.settings.target {
+        let connector = match &self.settings.target {
             Target::Mqtt { url, credentials } => {
-                let mut client = MqttClient::new(url, None);
-                client.set_on_connection_lost(self.link.callback(|err| Msg::Disconnected(err)));
-                client.set_on_message_arrived(self.link.callback(|msg| Msg::Message(msg)));
-
-                let (username, password) = match credentials {
-                    Credentials::None => (None, None),
-                    Credentials::Password(password) => (
-                        Some(format!(
-                            "{}@{}",
-                            self.settings.device, self.settings.application
-                        )),
-                        Some(password.clone()),
-                    ),
-                    Credentials::UsernamePassword { username, password } => {
-                        (Some(username.clone()), Some(password.clone()))
-                    }
-                };
+                let mut connector = MqttConnector::new(ConnectorOptions {
+                    credentials,
+                    url,
+                    settings: &self.settings,
+                    on_connection_lost: self.link.callback(|err| Msg::Disconnected(err)),
+                    on_command: self.link.callback(|msg| Msg::Command(msg)),
+                });
 
                 self.state.state = State::Connecting;
                 self.send_state();
 
-                if let Err(err) = client.connect(
-                    MqttConnectOptions {
-                        username,
-                        password,
-                        clean_session: true,
-                        reconnect: true,
-                        keep_alive_interval: Some(Duration::from_secs(2)),
-                        timeout: Some(Duration::from_secs(5)),
-                    },
-                    self.link.callback(|_| Msg::Connected),
-                    self.link.callback(|err| Msg::Disconnected(err)),
-                ) {
+                if let Err(err) = connector.connect(ConnectOptions {
+                    on_success: self.link.callback(|_| Msg::Connected),
+                    on_failure: self.link.callback(|err| Msg::Disconnected(err)),
+                }) {
                     log::warn!("Failed to start connecting: {err}");
                 }
 
-                Some(client)
+                Some(Box::new(connector) as Box<dyn Connector>)
             }
             // FIXME: implement HTTP too
             _ => None,
         };
 
-        self.client = client;
+        self.connector = connector;
 
         log::info!("Created");
     }
 
     fn stop(&mut self) {
+        self.connector.take();
         self.state.running = false;
+        self.state.state = State::Disconnected;
         self.send_state();
-    }
-
-    fn subscribe(&mut self) {
-        if let Some(client) = &mut self.client {
-            if let Err(err) = client.subscribe(
-                "command/inbox/#",
-                QoS::QoS0,
-                Duration::from_secs(5),
-                self.link.callback(|_| Msg::Subscribed),
-                self.link.callback(|err| Msg::Disconnected(err)),
-            ) {
-                log::warn!("Failed to trigger subscription: {err}");
-            };
-        }
     }
 
     fn update_settings(&mut self, settings: Settings) {
