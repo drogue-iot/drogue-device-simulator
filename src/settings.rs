@@ -13,13 +13,13 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            auto_connect: true,
+            auto_connect: false,
             target: Target::Mqtt {
                 url: "wss://mqtt-endpoint-ws-browser-drogue-dev.apps.wonderful.iot-playground.org/mqtt".into(),
-                credentials: Credentials::Password("foobar12".into()),
+                credentials: Credentials::Password("my-password".into()),
             },
-            application: "ctron".into(),
-            device: "test1".into(),
+            application: "my-application".into(),
+            device: "my-device".into(),
         }
     }
 }
