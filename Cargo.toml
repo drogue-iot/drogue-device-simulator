@@ -1,0 +1,65 @@
+[package]
+name = "drogue-device-simulator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+gloo-storage = "0.2"
+gloo-timers = "0.2"
+gloo-utils = "0.1"
+js-sys = "0.3.50"
+log = "0.4"
+url = "2"
+base64 = "0.13"
+anyhow = "1"
+monaco = { version = "0.3", features = ["yew-components"] }
+patternfly-yew = "0.1.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.8"
+uuid = { version = "0.8", features = ["wasm-bindgen", "v4"] }
+wasm-bindgen-futures = "0.4"
+wasm-logger = "0.2"
+yew = "0.19"
+yew-agent = "0.1"
+yew-router = { version = "0.16", package = "yew-router-nested" }
+
+# For wasm-bindgen we need the exact version, as it will be required by the wasm-pack tool.
+# Updating this dependency requires:
+#  * Update the dependency version here
+#  * Create a new builder image, with the same version of wasm-bindgen pre-installed
+wasm-bindgen = "=0.2.79"
+
+web-sys = { version = "0.3", features = [
+    "AbortController",
+    "AbortSignal",
+    "Headers",
+    "Location",
+    "Request",
+    "RequestCache",
+    "RequestCredentials",
+    "RequestInit",
+    "RequestMode",
+    "RequestRedirect",
+    "Response",
+    "MessageEvent",
+    "WebSocket",
+    "Window",
+] }
+
+[patch.crates-io]
+monaco = { git = "https://github.com/siku2/rust-monaco", rev = "cb20108c317976ba8c3d05b581a84efd394c3dbe" } # FIXME: awaiting release
+patternfly-yew = { git = "https://github.com/ctron/patternfly-yew", rev = "7ef21b3ce4ed618d3b0a34e644217ea8ba9dec5f" }
+#patternfly-yew = { path = "../patternfly-yew" }
+
+[dev-dependencies]
+env_logger = "0.9"
+
+[features]
+default = []
+
+[profile.release]
+panic = 'abort'
+codegen-units = 1
+opt-level = 's'
+lto = true
