@@ -1,16 +1,14 @@
-use crate::data;
-use crate::data::SharedDataBridge;
-use crate::mqtt::{MqttClient, MqttConnectOptions, MqttMessage, QoS};
+use crate::connector::mqtt::{MqttClient, MqttConnectOptions, MqttMessage, QoS};
+use crate::data::{self, SharedDataBridge};
 use crate::settings::{Credentials, Settings, Target};
-use std::fmt::{Debug, Display, Formatter};
-use std::rc::Rc;
-use std::time::Duration;
 use std::{
     collections::HashSet,
+    fmt::{Debug, Display, Formatter},
     ops::{Deref, DerefMut},
+    rc::Rc,
+    time::Duration,
 };
-use yew::html::Scope;
-use yew::{Callback, Component};
+use yew::{html::Scope, Callback, Component};
 use yew_agent::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

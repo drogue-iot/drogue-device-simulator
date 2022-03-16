@@ -30,7 +30,7 @@ impl Component for Publish {
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
-        let simulator = SimulatorBridge::new(ctx.link().batch_callback(|response| vec![]));
+        let simulator = SimulatorBridge::new(ctx.link().batch_callback(|_response| vec![]));
 
         Self {
             simulator,

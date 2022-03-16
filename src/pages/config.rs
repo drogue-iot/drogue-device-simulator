@@ -1,4 +1,4 @@
-use crate::data::{SharedDataBridge, SharedDataDispatcher, SharedDataOps};
+use crate::data::{SharedDataBridge, SharedDataOps};
 use crate::pages::ApplicationPage;
 use crate::settings::Settings;
 use crate::utils::to_yaml_model;
@@ -9,7 +9,6 @@ use monaco::sys::editor::BuiltinTheme;
 use monaco::yew::CodeEditor;
 use patternfly_yew::*;
 use serde_json::Value;
-use std::fmt::{format, Display};
 use std::rc::Rc;
 use url::Url;
 use yew::prelude::*;
