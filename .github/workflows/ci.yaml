@@ -89,11 +89,6 @@ jobs:
           docker buildx build . --platform linux/arm64 --tag $IMAGE_ID:$VERSION
           echo "platforms=${{ env.platforms }}linux/arm64," >> $GITHUB_ENV
 
-      - name: Build (linux/arm/v7)
-        run: |
-          docker buildx build . --platform linux/arm/v7 --tag $IMAGE_ID:$VERSION
-          echo "platforms=${{ env.platforms }}linux/arm/v7," >> $GITHUB_ENV
-
       - name: Tag and Push
         run: |
           PLATFORMS=$(echo "${{ env.platforms }}" | sed 's/,$//') 
