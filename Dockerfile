@@ -9,6 +9,9 @@ RUN trunk build --release
 
 FROM registry.access.redhat.com/ubi8/nginx-120:latest
 
+RUN pwd
+
+COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY --from=builder /build/dist/ ./
 
 CMD [ "nginx", "-g", "daemon off;"]
