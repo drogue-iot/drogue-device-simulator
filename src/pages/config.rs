@@ -1,7 +1,7 @@
 use crate::data::{SharedDataBridge, SharedDataOps};
 use crate::pages::ApplicationPage;
 use crate::settings::{Settings, DEFAULT_CONFIG_KEY};
-use crate::utils::to_yaml_model;
+use crate::utils::monaco::to_yaml_model;
 use anyhow::anyhow;
 use gloo_storage::{LocalStorage, Storage};
 use gloo_utils::window;

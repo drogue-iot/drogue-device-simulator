@@ -1,9 +1,18 @@
+mod generators;
 mod mqtt;
+mod publish;
 
 use crate::connector::mqtt::QoS;
 use crate::data::{self, SharedDataBridge};
 use crate::settings::{Credentials, Settings, Target};
+use crate::simulator::generators::sawtooth::SawtoothGenerator;
+use crate::simulator::generators::tick::TickedGenerator;
+use crate::simulator::generators::{sawtooth, Generator};
 use crate::simulator::mqtt::MqttConnector;
+use crate::simulator::publish::{ChannelState, Event, Publisher};
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
+use std::time::Duration;
 use std::{
     collections::HashSet,
     fmt::{Debug, Display, Formatter},
@@ -35,7 +44,7 @@ pub struct SubscribeOptions {
 pub trait Connector {
     fn connect(&mut self, opts: ConnectOptions) -> anyhow::Result<()>;
     fn subscribe(&mut self, opts: SubscribeOptions) -> anyhow::Result<()>;
-    fn publish(&mut self, channel: String, payload: Vec<u8>, qos: QoS);
+    fn publish(&mut self, channel: &str, payload: Vec<u8>, qos: QoS);
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -43,6 +52,8 @@ pub struct Command {
     pub name: String,
     pub payload: Option<Vec<u8>>,
 }
+
+pub type GeneratorId = String;
 
 pub struct Simulator {
     link: AgentLink<Self>,
@@ -55,6 +66,27 @@ pub struct Simulator {
 
     connector: Option<Box<dyn Connector>>,
     commands: Vec<Command>,
+
+    generators: HashMap<GeneratorId, Box<dyn GeneratorHandler>>,
+    data: HashMap<String, ChannelState>,
+}
+
+trait GeneratorHandler {
+    fn start(&mut self, ctx: generators::Context);
+    fn stop(&mut self);
+}
+
+impl<G> GeneratorHandler for G
+where
+    G: Generator,
+{
+    fn start(&mut self, ctx: generators::Context) {
+        Generator::start(self, ctx)
+    }
+
+    fn stop(&mut self) {
+        Generator::stop(self)
+    }
 }
 
 #[derive(Debug)]
@@ -64,6 +96,7 @@ pub enum Msg {
     Subscribed,
     Disconnected(String),
     Command(Command),
+    PublishEvent(Event),
 }
 
 pub enum Request {
@@ -136,7 +169,7 @@ impl Agent for Simulator {
         }));
         settings_agent.request_state();
 
-        Self {
+        let mut result = Self {
             link,
             subscribers: HashSet::new(),
             state: SimulatorState {
@@ -147,7 +180,27 @@ impl Agent for Simulator {
             settings: Default::default(),
             connector: None,
             commands: vec![],
-        }
+            generators: Default::default(),
+            data: Default::default(),
+        };
+
+        /*
+        result.add_generator(SineGenerator::new(Properties {
+            period: Duration::from_secs(1),
+            amplitude: 100f64.into(),
+            length: Duration::from_secs(60),
+        }));
+         */
+
+        result.add_generator(SawtoothGenerator::new(sawtooth::Properties {
+            period: Duration::from_secs(1),
+            max: 1000f64.into(),
+            length: Duration::from_secs(10),
+        }));
+
+        // done
+
+        result
     }
 
     fn update(&mut self, msg: Self::Message) {
@@ -189,6 +242,9 @@ impl Agent for Simulator {
                         .respond(id.clone(), Response::Command(command.clone()));
                 }
             }
+            Msg::PublishEvent(event) => {
+                self.publish(event);
+            }
         }
     }
 
@@ -211,9 +267,7 @@ impl Agent for Simulator {
                 }
             }
             Request::Publish { channel, payload } => {
-                if let Some(connector) = &mut self.connector {
-                    connector.publish(channel, payload, QoS::QoS0);
-                }
+                self.publish_raw(&channel, payload);
             }
             Request::FetchHistory => {
                 if id.is_respondable() {
@@ -237,6 +291,73 @@ impl Simulator {
         for id in &self.subscribers {
             self.link
                 .respond(id.clone(), Response::State(self.state.clone()));
+        }
+    }
+
+    fn add_generator<G>(&mut self, mut generator: G) -> GeneratorId
+    where
+        G: Generator + 'static,
+    {
+        // start
+
+        let ctx = generators::Context::new(self.link.callback(Msg::PublishEvent));
+        generator.start(ctx);
+
+        // insert
+
+        let id = uuid::Uuid::new_v4().to_string();
+        self.generators.insert(id.clone(), Box::new(generator));
+
+        // return handle
+
+        id
+    }
+
+    fn remove_generator(&mut self, id: &GeneratorId) {
+        if let Some(mut generator) = self.generators.remove(id) {
+            generator.stop()
+        }
+    }
+
+    fn publish_raw(&mut self, channel: &str, payload: Vec<u8>) {
+        if let Some(connector) = &mut self.connector {
+            connector.publish(channel, payload, QoS::QoS0);
+        }
+    }
+
+    fn publish(&mut self, event: Event) {
+        match event {
+            Event::Full { channel, state } => {
+                if let Ok(payload) = serde_json::to_vec(&state) {
+                    self.publish_raw(&channel, payload);
+                }
+                self.data.insert(channel, state);
+            }
+            Event::Single { channel, state } => {
+                let entry = self.data.entry(channel.clone());
+                let state = match entry {
+                    Entry::Vacant(e) => {
+                        let mut features = HashMap::new();
+                        features.insert(state.name, state.state);
+                        let state = ChannelState { features };
+                        e.insert(state.clone());
+                        state
+                    }
+                    Entry::Occupied(mut e) => {
+                        let e = e.get_mut();
+                        e.features.insert(state.name, state.state);
+                        e.clone()
+                    }
+                };
+
+                self.publish_channel_state(&channel, &state);
+            }
+        }
+    }
+
+    fn publish_channel_state(&mut self, channel: &str, state: &ChannelState) {
+        if let Ok(payload) = serde_json::to_vec(&state) {
+            self.publish_raw(&channel, payload);
         }
     }
 
@@ -274,7 +395,9 @@ impl Simulator {
 
         self.connector = connector;
 
-        log::info!("Created");
+        // Done
+
+        log::info!("Started");
     }
 
     fn stop(&mut self) {
@@ -294,6 +417,12 @@ impl Simulator {
             // auto-connect on, but not started yet
             self.start();
         }
+    }
+}
+
+impl Publisher for Callback<Event> {
+    fn publish(&mut self, event: Event) {
+        self.emit(event);
     }
 }
 

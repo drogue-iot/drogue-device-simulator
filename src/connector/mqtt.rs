@@ -26,8 +26,14 @@ extern "C" {
     #[wasm_bindgen(method)]
     fn subscribe(this: &Client, filter: &str, options: &JsValue);
 
-    #[wasm_bindgen(method)]
-    fn publish(this: &Client, topic: &str, payload: Vec<u8>, qos: i32, retained: bool);
+    #[wasm_bindgen(method, catch)]
+    fn publish(
+        this: &Client,
+        topic: &str,
+        payload: Vec<u8>,
+        qos: i32,
+        retained: bool,
+    ) -> Result<(), JsValue>;
 
     #[wasm_bindgen(method, setter, js_name = "onMessageArrived")]
     fn set_on_message_arrived(this: &Client, handler: &JsValue);
@@ -164,7 +170,7 @@ impl MqttClient {
             .subscribe(filter, qos, timeout, on_success, on_failure)
     }
 
-    pub fn publish<T, P>(&self, topic: T, payload: P, qos: QoS, retain: bool)
+    pub fn publish<T, P>(&self, topic: T, payload: P, qos: QoS, retain: bool) -> anyhow::Result<()>
     where
         T: AsRef<str>,
         P: Into<Vec<u8>>,
@@ -312,13 +318,14 @@ impl Inner {
         Ok(())
     }
 
-    fn publish<T, P>(&self, topic: T, payload: P, qos: QoS, retain: bool)
+    fn publish<T, P>(&self, topic: T, payload: P, qos: QoS, retain: bool) -> anyhow::Result<()>
     where
         T: AsRef<str>,
         P: Into<Vec<u8>>,
     {
         self.client
-            .publish(topic.as_ref(), payload.into(), qos.into(), retain);
+            .publish(topic.as_ref(), payload.into(), qos.into(), retain)
+            .map_err(str_err)
     }
 
     pub fn set_on_message_arrived(&mut self, callback: Callback<MqttMessage>) {
@@ -370,6 +377,13 @@ fn convert_error(value: JsValue) -> String {
 fn str_err(err: JsValue) -> anyhow::Error {
     match err.as_string() {
         Some(err) => anyhow::Error::msg(err),
-        None => anyhow!("Unknown error"),
+        None => match err.into_serde::<Value>() {
+            Ok(err) => {
+                anyhow!("Unknown error: {err}")
+            }
+            Err(_) => {
+                anyhow!("Unknown error")
+            }
+        },
     }
 }

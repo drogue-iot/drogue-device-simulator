@@ -67,7 +67,9 @@ impl Connector for MqttConnector {
         )
     }
 
-    fn publish(&mut self, channel: String, payload: Vec<u8>, qos: QoS) {
-        self.client.publish(channel, payload, qos, false);
+    fn publish(&mut self, channel: &str, payload: Vec<u8>, qos: QoS) {
+        if let Err(err) = self.client.publish(channel, payload, qos, false) {
+            log::info!("Failed to publish: {err}");
+        }
     }
 }
