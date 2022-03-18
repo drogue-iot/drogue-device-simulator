@@ -1,6 +1,7 @@
 use crate::pages::ApplicationPage;
-use crate::simulator::{Command, Request, Response, SimulatorBridge};
+use crate::simulator::{Event, Request, Response, SimulatorBridge};
 use crate::utils::ui::render_payload;
+use chrono::Local;
 use patternfly_yew::*;
 use std::rc::Rc;
 use yew::prelude::*;
@@ -8,70 +9,69 @@ use yew::prelude::*;
 const DEFAULT_MAX_SIZE: usize = 200;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Entry(Command);
+pub struct Entry(Event);
 
 impl TableRenderer for Entry {
     fn render(&self, column: ColumnIndex) -> Html {
         match column.index {
-            0 => html!(<code>{&self.0.name}</code>),
-            1 => match &self.0.payload {
-                Some(payload) => render_payload(payload, false),
-                None => html!(),
-            },
+            0 => {
+                let timestamp = self
+                    .0
+                    .timestamp
+                    .with_timezone(&Local)
+                    .format("%Y-%m-%d %H:%M:%S%.3f");
+
+                timestamp.into()
+            }
+            1 => html!(<code>{&self.0.channel}</code>),
+            2 => render_payload(&self.0.payload, false),
             _ => html!(),
         }
     }
 
     fn render_details(&self) -> Vec<Span> {
-        match &self.0.payload {
-            Some(payload) => {
-                vec![Span::max(html!(render_payload(payload, true))).truncate()]
-            }
-            None => {
-                vec![]
-            }
-        }
+        vec![Span::max(render_payload(&self.0.payload, true)).truncate()]
     }
 }
 
-pub struct Commands {
-    commands: SharedTableModel<Entry>,
+pub struct Events {
+    events: SharedTableModel<Entry>,
     total_received: usize,
     _simulator: SimulatorBridge,
 }
 
-impl ApplicationPage for Commands {
+impl ApplicationPage for Events {
     fn title() -> String {
-        "Received commands".to_string()
+        "Events".to_string()
     }
 }
 
 pub enum Msg {
-    Add(Rc<Command>),
-    Set(Vec<Command>),
+    Add(Rc<Event>),
+    Set(Vec<Event>),
     Clear,
 }
 
-impl Component for Commands {
+impl Component for Events {
     type Message = Msg;
     type Properties = ();
 
     fn create(ctx: &Context<Self>) -> Self {
         let mut simulator =
             SimulatorBridge::new(ctx.link().batch_callback(|response| match response {
-                Response::Command(command) => {
-                    vec![Msg::Add(command)]
+                Response::Event(event) => {
+                    vec![Msg::Add(event)]
                 }
-                Response::CommandHistory(commands) => {
-                    vec![Msg::Set(commands)]
+                Response::EventHistory(events) => {
+                    vec![Msg::Set(events)]
                 }
                 _ => vec![],
             }));
 
-        simulator.send(Request::FetchCommandHistory);
+        simulator.send(Request::FetchEventHistory);
 
         Self {
-            commands: Default::default(),
+            events: Default::default(),
             total_received: 0,
             _simulator: simulator,
         }
@@ -80,19 +80,19 @@ impl Component for Commands {
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Clear => {
-                self.commands.clear();
+                self.events.clear();
             }
-            Msg::Set(commands) => {
-                for command in commands.into_iter().rev().take(DEFAULT_MAX_SIZE) {
-                    self.commands.push(Entry(command));
+            Msg::Set(events) => {
+                for event in events.into_iter().rev().take(DEFAULT_MAX_SIZE) {
+                    self.events.push(Entry(event));
                 }
-                self.total_received = self.commands.len();
+                self.total_received = self.events.len();
             }
-            Msg::Add(command) => {
+            Msg::Add(event) => {
                 self.total_received += 1;
-                self.commands.insert(0, Entry((*command).clone()));
-                while self.commands.len() > DEFAULT_MAX_SIZE {
-                    self.commands.pop();
+                self.events.insert(0, Entry((*event).clone()));
+                while self.events.len() > DEFAULT_MAX_SIZE {
+                    self.events.pop();
                 }
             }
         }
@@ -102,7 +102,8 @@ impl Component for Commands {
     fn view(&self, ctx: &Context<Self>) -> Html {
         let header = html_nested! {
             <TableHeader>
-                <TableColumn label="Command"/>
+                <TableColumn label="Timestamp"/>
+                <TableColumn label="Channel"/>
                 <TableColumn label="Payload"/>
             </TableHeader>
         };
@@ -128,7 +129,7 @@ impl Component for Commands {
                     </Toolbar>
 
                     <Table<SharedTableModel<Entry>>
-                        entries={self.commands.clone()}
+                        entries={self.events.clone()}
                         mode={TableMode::CompactExpandable}
                         header={header}
                         >

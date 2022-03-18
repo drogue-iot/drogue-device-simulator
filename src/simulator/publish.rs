@@ -30,7 +30,7 @@ pub struct SingleFeature {
 }
 
 pub trait Publisher {
-    fn publish(&mut self, event: Event);
+    fn publish(&mut self, event: PublishEvent);
 }
 
 pub trait PublisherExt {
@@ -50,7 +50,7 @@ impl PublisherExt for &mut dyn Publisher {
         P: Into<String>,
         V: Into<Value>,
     {
-        self.publish(Event::Single {
+        self.publish(PublishEvent::Single {
             channel: channel.into(),
             state: SingleFeature {
                 name: feature.into(),
@@ -67,7 +67,7 @@ impl PublisherExt for &mut dyn Publisher {
 }
 
 #[derive(Debug)]
-pub enum Event {
+pub enum PublishEvent {
     Single {
         channel: String,
         state: SingleFeature,

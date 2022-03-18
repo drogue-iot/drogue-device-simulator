@@ -1,18 +1,19 @@
-mod generators;
+pub mod generators;
 mod mqtt;
 mod publish;
 
 use crate::connector::mqtt::QoS;
 use crate::data::{self, SharedDataBridge};
-use crate::settings::{Credentials, Settings, Target};
+use crate::settings::{Credentials, Settings, Simulation, Target};
 use crate::simulator::generators::sawtooth::SawtoothGenerator;
+use crate::simulator::generators::sine::SineGenerator;
 use crate::simulator::generators::tick::TickedGenerator;
-use crate::simulator::generators::{sawtooth, Generator};
+use crate::simulator::generators::{Generator, SimulationState};
 use crate::simulator::mqtt::MqttConnector;
-use crate::simulator::publish::{ChannelState, Event, Publisher};
+use crate::simulator::publish::{ChannelState, PublishEvent, Publisher};
+use chrono::{DateTime, Utc};
 use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::time::Duration;
+use std::collections::{BTreeMap, HashMap};
 use std::{
     collections::HashSet,
     fmt::{Debug, Display, Formatter},
@@ -53,6 +54,13 @@ pub struct Command {
     pub payload: Option<Vec<u8>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Event {
+    pub timestamp: DateTime<Utc>,
+    pub channel: String,
+    pub payload: Vec<u8>,
+}
+
 pub type GeneratorId = String;
 
 pub struct Simulator {
@@ -66,14 +74,16 @@ pub struct Simulator {
 
     connector: Option<Box<dyn Connector>>,
     commands: Vec<Command>,
+    events: Vec<Event>,
 
-    generators: HashMap<GeneratorId, Box<dyn GeneratorHandler>>,
+    simulations: HashMap<GeneratorId, Box<dyn GeneratorHandler>>,
     data: HashMap<String, ChannelState>,
 }
 
 trait GeneratorHandler {
     fn start(&mut self, ctx: generators::Context);
     fn stop(&mut self);
+    fn state(&self) -> SimulationState;
 }
 
 impl<G> GeneratorHandler for G
@@ -87,6 +97,10 @@ where
     fn stop(&mut self) {
         Generator::stop(self)
     }
+
+    fn state(&self) -> SimulationState {
+        Generator::state(self)
+    }
 }
 
 #[derive(Debug)]
@@ -96,26 +110,30 @@ pub enum Msg {
     Subscribed,
     Disconnected(String),
     Command(Command),
-    PublishEvent(Event),
+    PublishEvent(PublishEvent),
 }
 
 pub enum Request {
     Start,
     Stop,
     Publish { channel: String, payload: Vec<u8> },
-    FetchHistory,
+    FetchCommandHistory,
+    FetchEventHistory,
 }
 
 pub enum Response {
     State(SimulatorState),
     Command(Rc<Command>),
     CommandHistory(Vec<Command>),
+    Event(Rc<Event>),
+    EventHistory(Vec<Event>),
 }
 
 #[derive(Clone, Debug)]
 pub struct SimulatorState {
     pub running: bool,
     pub state: State,
+    pub simulations: BTreeMap<String, SimulationState>,
 }
 
 impl Default for SimulatorState {
@@ -123,6 +141,7 @@ impl Default for SimulatorState {
         Self {
             running: false,
             state: State::Disconnected,
+            simulations: Default::default(),
         }
     }
 }
@@ -169,34 +188,18 @@ impl Agent for Simulator {
         }));
         settings_agent.request_state();
 
-        let mut result = Self {
+        let result = Self {
             link,
             subscribers: HashSet::new(),
-            state: SimulatorState {
-                running: false,
-                state: State::Disconnected,
-            },
+            state: Default::default(),
             _settings_agent: settings_agent,
             settings: Default::default(),
             connector: None,
             commands: vec![],
-            generators: Default::default(),
+            events: vec![],
+            simulations: Default::default(),
             data: Default::default(),
         };
-
-        /*
-        result.add_generator(SineGenerator::new(Properties {
-            period: Duration::from_secs(1),
-            amplitude: 100f64.into(),
-            length: Duration::from_secs(60),
-        }));
-         */
-
-        result.add_generator(SawtoothGenerator::new(sawtooth::Properties {
-            period: Duration::from_secs(1),
-            max: 1000f64.into(),
-            length: Duration::from_secs(10),
-        }));
 
         // done
 
@@ -251,6 +254,7 @@ impl Agent for Simulator {
     fn connected(&mut self, id: HandlerId) {
         if id.is_respondable() {
             self.subscribers.insert(id);
+            self.link.respond(id, Response::State(self.state.clone()));
         }
     }
 
@@ -269,10 +273,16 @@ impl Agent for Simulator {
             Request::Publish { channel, payload } => {
                 self.publish_raw(&channel, payload);
             }
-            Request::FetchHistory => {
+            Request::FetchCommandHistory => {
                 if id.is_respondable() {
                     self.link
                         .respond(id, Response::CommandHistory(self.commands.clone()));
+                }
+            }
+            Request::FetchEventHistory => {
+                if id.is_respondable() {
+                    self.link
+                        .respond(id, Response::EventHistory(self.events.clone()));
                 }
             }
         }
@@ -294,19 +304,22 @@ impl Simulator {
         }
     }
 
-    fn add_generator<G>(&mut self, mut generator: G) -> GeneratorId
-    where
-        G: Generator + 'static,
-    {
+    fn add_generator(
+        &mut self,
+        id: String,
+        mut generator: Box<dyn GeneratorHandler>,
+    ) -> GeneratorId {
         // start
 
-        let ctx = generators::Context::new(self.link.callback(Msg::PublishEvent));
+        let ctx = generators::Context::new(id.clone(), self.link.callback(Msg::PublishEvent));
         generator.start(ctx);
+        let state = generator.state();
 
         // insert
 
-        let id = uuid::Uuid::new_v4().to_string();
-        self.generators.insert(id.clone(), Box::new(generator));
+        self.simulations.insert(id.clone(), generator);
+        self.state.simulations.insert(id.clone(), state);
+        self.send_state();
 
         // return handle
 
@@ -314,26 +327,40 @@ impl Simulator {
     }
 
     fn remove_generator(&mut self, id: &GeneratorId) {
-        if let Some(mut generator) = self.generators.remove(id) {
+        if let Some(mut generator) = self.simulations.remove(id) {
             generator.stop()
         }
     }
 
     fn publish_raw(&mut self, channel: &str, payload: Vec<u8>) {
         if let Some(connector) = &mut self.connector {
-            connector.publish(channel, payload, QoS::QoS0);
+            connector.publish(channel, payload.clone(), QoS::QoS0);
+
+            let event = Event {
+                timestamp: Utc::now(),
+                channel: channel.to_string(),
+                payload,
+            };
+
+            self.events.push(event.clone());
+
+            let event = Rc::new(event);
+            for id in &self.subscribers {
+                self.link
+                    .respond(id.clone(), Response::Event(event.clone()));
+            }
         }
     }
 
-    fn publish(&mut self, event: Event) {
+    fn publish(&mut self, event: PublishEvent) {
         match event {
-            Event::Full { channel, state } => {
+            PublishEvent::Full { channel, state } => {
                 if let Ok(payload) = serde_json::to_vec(&state) {
                     self.publish_raw(&channel, payload);
                 }
                 self.data.insert(channel, state);
             }
-            Event::Single { channel, state } => {
+            PublishEvent::Single { channel, state } => {
                 let entry = self.data.entry(channel.clone());
                 let state = match entry {
                     Entry::Vacant(e) => {
@@ -408,7 +435,7 @@ impl Simulator {
     }
 
     fn update_settings(&mut self, settings: Settings) {
-        self.settings = settings;
+        self.apply_settings(settings);
         if self.state.running {
             // disconnect to trigger reconnect
             self.stop();
@@ -418,10 +445,33 @@ impl Simulator {
             self.start();
         }
     }
+
+    /// Apply the new settings
+    fn apply_settings(&mut self, settings: Settings) {
+        let mut current_sims: HashSet<_> = self.simulations.keys().cloned().collect();
+
+        for (id, sim) in &settings.simulations {
+            self.add_generator(id.clone(), Self::create_sim(sim));
+            current_sims.remove(id);
+        }
+
+        for removed_id in current_sims {
+            self.remove_generator(&removed_id);
+        }
+
+        self.settings = settings;
+    }
+
+    fn create_sim(sim: &Simulation) -> Box<dyn GeneratorHandler> {
+        match sim {
+            Simulation::Sine(props) => Box::new(SineGenerator::new(props.clone())),
+            Simulation::Sawtooth(props) => Box::new(SawtoothGenerator::new(props.clone())),
+        }
+    }
 }
 
-impl Publisher for Callback<Event> {
-    fn publish(&mut self, event: Event) {
+impl Publisher for Callback<PublishEvent> {
+    fn publish(&mut self, event: PublishEvent) {
         self.emit(event);
     }
 }

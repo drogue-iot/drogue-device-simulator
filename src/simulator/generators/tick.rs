@@ -1,4 +1,4 @@
-use crate::simulator::generators::{Context, Generator};
+use crate::simulator::generators::{Context, Generator, SimulationState};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gloo_timers::future::TimeoutFuture;
@@ -17,6 +17,8 @@ pub trait TickedGenerator: Sized {
     fn new(properties: Self::Properties) -> TickingGenerator<Self> {
         TickingGenerator::new(properties)
     }
+
+    fn state(properties: &Self::Properties) -> SimulationState;
 }
 
 pub trait TickState: 'static {
@@ -108,5 +110,9 @@ where
         if let Some(tx) = self.tx.take() {
             tx.close_channel();
         }
+    }
+
+    fn state(&self) -> SimulationState {
+        G::state(&self.properties)
     }
 }

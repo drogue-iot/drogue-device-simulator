@@ -1,6 +1,6 @@
 use super::default_period;
 use crate::simulator::generators::tick::{TickState, TickedGenerator};
-use crate::simulator::generators::Context;
+use crate::simulator::generators::{Context, SimulationState, SingleTarget};
 use crate::simulator::publish::PublisherExt;
 use crate::utils::float::{ApproxF64, Zero};
 use js_sys::{Date, Math::sin};
@@ -18,12 +18,15 @@ pub struct Properties {
 
     #[serde(default = "default_period", with = "humantime_serde")]
     pub period: Duration,
+
+    pub target: SingleTarget,
 }
 
 pub struct State {
     pub amplitude: f64,
     pub length: f64,
     pub period: Duration,
+    pub target: SingleTarget,
 }
 
 impl TickState for State {
@@ -33,6 +36,8 @@ impl TickState for State {
 }
 
 pub struct SineGenerator;
+
+const DEFAULT_FEATURE: &str = "sawtooth";
 
 impl TickedGenerator for SineGenerator {
     type Properties = Properties;
@@ -48,6 +53,7 @@ impl TickedGenerator for SineGenerator {
             length,
             amplitude,
             period: properties.period,
+            target: properties.target.clone(),
         }
     }
 
@@ -55,7 +61,25 @@ impl TickedGenerator for SineGenerator {
         let now = Date::now() * (TAU / state.length);
         let value = sin(now) * state.amplitude;
 
-        ctx.publisher()
-            .publish_single("state", "sine1", "value", value);
+        ctx.publisher().publish_single(
+            &state.target.channel,
+            state.target.feature.as_deref().unwrap_or(DEFAULT_FEATURE),
+            &state.target.property,
+            value,
+        );
+    }
+
+    fn state(properties: &Self::Properties) -> SimulationState {
+        SimulationState {
+            label: format!(
+                "Sine ({}/{})",
+                properties.target.channel,
+                properties
+                    .target
+                    .feature
+                    .as_deref()
+                    .unwrap_or(DEFAULT_FEATURE)
+            ),
+        }
     }
 }

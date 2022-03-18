@@ -1,6 +1,6 @@
 use super::default_period;
 use crate::simulator::generators::tick::{TickState, TickedGenerator};
-use crate::simulator::generators::Context;
+use crate::simulator::generators::{Context, SimulationState, SingleTarget};
 use crate::simulator::publish::PublisherExt;
 use crate::utils::float::{ApproxF64, Zero};
 use js_sys::Date;
@@ -17,12 +17,15 @@ pub struct Properties {
 
     #[serde(default = "default_period", with = "humantime_serde")]
     pub period: Duration,
+
+    pub target: SingleTarget,
 }
 
 pub struct State {
     pub max: f64,
     pub length: f64,
     pub period: Duration,
+    pub target: SingleTarget,
 }
 
 impl TickState for State {
@@ -32,6 +35,8 @@ impl TickState for State {
 }
 
 pub struct SawtoothGenerator;
+
+const DEFAULT_FEATURE: &str = "sawtooth";
 
 impl TickedGenerator for SawtoothGenerator {
     type Properties = Properties;
@@ -45,6 +50,7 @@ impl TickedGenerator for SawtoothGenerator {
             max: properties.max.0,
             length: properties.length.as_millis().to_f64().unwrap_or(f64::MAX),
             period: properties.period,
+            target: properties.target.clone(),
         }
     }
 
@@ -52,7 +58,25 @@ impl TickedGenerator for SawtoothGenerator {
         let now = Date::now();
         let value = (now * 1000.0 / state.length) % state.max;
 
-        ctx.publisher()
-            .publish_single("state", "sawtooth1", "value", value);
+        ctx.publisher().publish_single(
+            &state.target.channel,
+            state.target.feature.as_deref().unwrap_or(DEFAULT_FEATURE),
+            &state.target.property,
+            value,
+        );
+    }
+
+    fn state(properties: &Self::Properties) -> SimulationState {
+        SimulationState {
+            label: format!(
+                "Sawtooth ({}/{})",
+                properties.target.channel,
+                properties
+                    .target
+                    .feature
+                    .as_deref()
+                    .unwrap_or(DEFAULT_FEATURE)
+            ),
+        }
     }
 }

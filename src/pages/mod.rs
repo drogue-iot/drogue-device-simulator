@@ -1,14 +1,18 @@
 mod commands;
 mod config;
 mod connection;
+mod events;
 mod overview;
 mod publish;
+mod simulation;
 
 pub use commands::*;
 pub use config::*;
 pub use connection::*;
+pub use events::*;
 pub use overview::*;
 pub use publish::*;
+pub use simulation::*;
 
 use patternfly_yew::*;
 use std::marker::PhantomData;
