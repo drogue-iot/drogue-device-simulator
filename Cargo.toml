@@ -8,15 +8,16 @@ anyhow = "1"
 base64 = "0.13"
 chrono = "0.4"
 float-cmp = "0.9"
-humantime = "2"
-humantime-serde = "1"
-num-traits = "0.2"
+futures = "0.3"
 gloo-storage = "0.2"
 gloo-timers = { version = "0.2", features = ["futures"] }
 gloo-utils = "0.1"
+humantime = "2"
+humantime-serde = "1"
 js-sys = "0.3.50"
 log = "0.4"
 monaco = { version = "0.3", features = ["yew-components"] }
+num-traits = "0.2"
 patternfly-yew = "0.1.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -28,7 +29,6 @@ wasm-logger = "0.2"
 yew = "0.19"
 yew-agent = "0.1"
 yew-router = { version = "0.16", package = "yew-router-nested" }
-futures = "0.3"
 
 # For wasm-bindgen we need the exact version, as it will be required by the wasm-pack tool.
 # Updating this dependency requires:

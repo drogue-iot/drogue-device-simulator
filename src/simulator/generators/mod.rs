@@ -58,7 +58,7 @@ impl Context {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SimulationState {
     pub label: String,
 }

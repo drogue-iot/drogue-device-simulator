@@ -78,6 +78,8 @@ pub struct Simulator {
 
     simulations: HashMap<GeneratorId, Box<dyn GeneratorHandler>>,
     data: HashMap<String, ChannelState>,
+
+    sim_subs: HashMap<GeneratorId, Vec<HandlerId>>,
 }
 
 trait GeneratorHandler {
@@ -119,10 +121,13 @@ pub enum Request {
     Publish { channel: String, payload: Vec<u8> },
     FetchCommandHistory,
     FetchEventHistory,
+    SubscribeSimulation(String),
+    UnsubscribeSimulation(String),
 }
 
 pub enum Response {
     State(SimulatorState),
+    SimulationState(SimulationState),
     Command(Rc<Command>),
     CommandHistory(Vec<Command>),
     Event(Rc<Event>),
@@ -199,6 +204,7 @@ impl Agent for Simulator {
             events: vec![],
             simulations: Default::default(),
             data: Default::default(),
+            sim_subs: Default::default(),
         };
 
         // done
@@ -285,6 +291,31 @@ impl Agent for Simulator {
                         .respond(id, Response::EventHistory(self.events.clone()));
                 }
             }
+            Request::SubscribeSimulation(sim_id) if id.is_respondable() => {
+                if let Some(sim) = self.simulations.get(&sim_id) {
+                    let state = sim.state();
+                    self.link.respond(id, Response::SimulationState(state));
+                }
+
+                match self.sim_subs.entry(sim_id) {
+                    Entry::Occupied(mut e) => {
+                        e.get_mut().push(id);
+                    }
+                    Entry::Vacant(e) => {
+                        e.insert(vec![id]);
+                    }
+                }
+            }
+            Request::SubscribeSimulation(_) => {}
+            Request::UnsubscribeSimulation(sim_id) => match self.sim_subs.entry(sim_id) {
+                Entry::Occupied(mut e) => {
+                    e.get_mut().retain(|i| i != &id);
+                    if e.get().is_empty() {
+                        e.remove();
+                    }
+                }
+                Entry::Vacant(_) => {}
+            },
         }
     }
 
@@ -493,6 +524,10 @@ impl SimulatorBridge {
             _ => vec![],
         });
         Self::new(callback)
+    }
+
+    pub fn subscribe_simulation(&mut self, id: String) {
+        self.send(Request::SubscribeSimulation(id));
     }
 
     pub fn start(&mut self) {
