@@ -24,6 +24,7 @@ pub struct Settings {
 pub enum Simulation {
     Sine(generators::sine::Properties),
     Sawtooth(generators::sawtooth::Properties),
+    Wave(generators::wave::Properties),
 }
 
 impl Default for Settings {

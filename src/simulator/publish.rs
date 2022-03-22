@@ -1,3 +1,4 @@
+use crate::simulator::generators::SimulationState;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -27,6 +28,10 @@ pub struct Feature {
 pub struct SingleFeature {
     pub name: String,
     pub state: Feature,
+}
+
+pub trait SimulatorStateUpdate {
+    fn state(&mut self, state: SimulationState);
 }
 
 pub trait Publisher {

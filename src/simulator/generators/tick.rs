@@ -1,7 +1,8 @@
-use crate::simulator::generators::{Context, Generator, SimulationState};
+use crate::simulator::generators::{Context, Generator};
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gloo_timers::future::TimeoutFuture;
+use js_sys::Date;
 use num_traits::ToPrimitive;
 use std::time::Duration;
 use wasm_bindgen_futures::spawn_local;
@@ -12,13 +13,11 @@ pub trait TickedGenerator: Sized {
 
     fn make_state(properties: &Self::Properties, current_state: Option<Self::State>)
         -> Self::State;
-    fn tick(state: &mut Self::State, ctx: &mut Context);
+    fn tick(now: f64, state: &mut Self::State, ctx: &mut Context);
 
     fn new(properties: Self::Properties) -> TickingGenerator<Self> {
         TickingGenerator::new(properties)
     }
-
-    fn state(properties: &Self::Properties) -> SimulationState;
 }
 
 pub trait TickState: 'static {
@@ -76,10 +75,12 @@ where
         self.tx = Some(tx);
 
         let mut state = G::make_state(&self.properties, None);
-        let mut period = state.period().as_millis().to_u32().unwrap_or(u32::MAX);
+        let mut period = state.period().as_millis().to_f64().unwrap_or(f64::MAX);
 
         spawn_local(async move {
-            let mut tick = TimeoutFuture::new(period).fuse();
+            // we start with a zero delay
+            let mut tick = TimeoutFuture::new(0).fuse();
+            let mut last = Date::now();
 
             loop {
                 select! {
@@ -89,17 +90,25 @@ where
                         }
                         Some(Msg::Update(props)) => {
                             state = G::make_state(&props, Some(state));
-                            let new_period = state.period().as_millis().to_u32().unwrap_or(u32::MAX);
+                            let new_period = state.period().as_millis().to_f64().unwrap_or(f64::MAX);
                             if period != new_period {
                                 period = new_period;
-                                tick = TimeoutFuture::new(period).fuse();
+                                tick = TimeoutFuture::new(period.to_u32().unwrap_or(u32::MAX)).fuse();
                             }
                         }
                     },
                     () = tick => {
-                        G::tick(&mut state, &mut ctx);
-                        log::info!("Next delay: {period}");
-                        tick = TimeoutFuture::new(period).fuse();
+                        let now = Date::now();
+                        let next = last + period;
+                        let delay = if next < now {
+                            0f64
+                        } else {
+                            next - now
+                        };
+                        last = next;
+                        G::tick(now, &mut state, &mut ctx);
+                        log::info!("Next delay: {delay}");
+                        tick = TimeoutFuture::new(delay.to_u32().unwrap_or(u32::MAX)).fuse();
                     }
                 }
             }
@@ -110,9 +119,5 @@ where
         if let Some(tx) = self.tx.take() {
             tx.close_channel();
         }
-    }
-
-    fn state(&self) -> SimulationState {
-        G::state(&self.properties)
     }
 }

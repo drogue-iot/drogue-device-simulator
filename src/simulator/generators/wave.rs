@@ -3,16 +3,20 @@ use crate::simulator::generators::tick::{TickState, TickedGenerator};
 use crate::simulator::generators::{Context, SimulationState, SingleTarget};
 use crate::simulator::publish::PublisherExt;
 use crate::utils::float::{ApproxF64, Zero};
+use js_sys::Date;
+use js_sys::Math::sin;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
+use std::f64::consts::TAU;
+use std::time::{Duration, SystemTime};
+use yew::prelude::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Properties {
-    pub max: ApproxF64<Zero, 2>,
+    pub lengths: Vec<ApproxF64<Zero, 2>>,
+    pub amplitudes: Vec<ApproxF64<Zero, 2>>,
 
-    #[serde(with = "humantime_serde")]
-    pub length: Duration,
+    pub offset: ApproxF64<Zero, 2>,
 
     #[serde(default = "default_period", with = "humantime_serde")]
     pub period: Duration,
@@ -22,8 +26,8 @@ pub struct Properties {
 }
 
 pub struct State {
-    pub max: f64,
-    pub length: f64,
+    pub offset: f64,
+    pub parameters: Vec<[f64; 2]>,
     pub period: Duration,
     pub target: SingleTarget,
 }
@@ -34,11 +38,11 @@ impl TickState for State {
     }
 }
 
-pub struct SawtoothGenerator;
+pub struct WaveGenerator;
 
-const DEFAULT_FEATURE: &str = "sawtooth";
+const DEFAULT_FEATURE: &str = "wave";
 
-impl TickedGenerator for SawtoothGenerator {
+impl TickedGenerator for WaveGenerator {
     type Properties = Properties;
     type State = State;
 
@@ -47,19 +51,36 @@ impl TickedGenerator for SawtoothGenerator {
         _current_state: Option<Self::State>,
     ) -> Self::State {
         Self::State {
-            max: properties.max.0,
-            length: properties.length.as_millis().to_f64().unwrap_or(f64::MAX),
+            parameters: properties
+                .lengths
+                .iter()
+                .map(|v| v.0)
+                .zip(properties.amplitudes.iter().map(|v| v.0))
+                .map(|(l, a)| [l, a])
+                .collect(),
+            offset: properties.offset.0,
             period: properties.period,
             target: properties.target.clone(),
         }
     }
 
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {
-        let value = (now * 1000.0 / state.length) % state.max;
+        let mut value = state.offset;
+
+        for [l, a] in &state.parameters {
+            value += sin(now * (TAU / l)) * a;
+        }
 
         ctx.update(SimulationState {
-            description: state.target.describe("Sawtooth", DEFAULT_FEATURE),
-            html: Default::default(),
+            description: state.target.describe("Wave", DEFAULT_FEATURE),
+            html: html!(
+                <>
+                    <dl>
+                        <dt>{ "Timestamp: "}</dt><dd> { now } </dd>
+                        <dt>{ "Value: "}</dt><dd> { value } </dd>
+                    </dl>
+                </>
+            ),
         });
 
         ctx.publisher().publish_single(

@@ -5,17 +5,18 @@ mod publish;
 use crate::connector::mqtt::QoS;
 use crate::data::{self, SharedDataBridge};
 use crate::settings::{Credentials, Settings, Simulation, Target};
-use crate::simulator::generators::sawtooth::SawtoothGenerator;
-use crate::simulator::generators::sine::SineGenerator;
-use crate::simulator::generators::tick::TickedGenerator;
-use crate::simulator::generators::{Generator, SimulationState};
-use crate::simulator::mqtt::MqttConnector;
-use crate::simulator::publish::{ChannelState, PublishEvent, Publisher};
+use crate::simulator::publish::SimulatorStateUpdate;
+use crate::simulator::{
+    generators::{
+        sawtooth::SawtoothGenerator, sine::SineGenerator, tick::TickedGenerator,
+        wave::WaveGenerator, Generator, SimulationDescription, SimulationState,
+    },
+    mqtt::MqttConnector,
+    publish::{ChannelState, PublishEvent, Publisher},
+};
 use chrono::{DateTime, Utc};
-use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap};
 use std::{
-    collections::HashSet,
+    collections::{btree_map::Entry, BTreeMap, HashMap, HashSet},
     fmt::{Debug, Display, Formatter},
     ops::{Deref, DerefMut},
     rc::Rc,
@@ -77,15 +78,15 @@ pub struct Simulator {
     events: Vec<Event>,
 
     simulations: HashMap<GeneratorId, Box<dyn GeneratorHandler>>,
-    data: HashMap<String, ChannelState>,
+    data: BTreeMap<String, ChannelState>,
 
-    sim_subs: HashMap<GeneratorId, Vec<HandlerId>>,
+    sim_subs: BTreeMap<GeneratorId, Vec<HandlerId>>,
+    sim_states: BTreeMap<GeneratorId, SimulationState>,
 }
 
 trait GeneratorHandler {
     fn start(&mut self, ctx: generators::Context);
     fn stop(&mut self);
-    fn state(&self) -> SimulationState;
 }
 
 impl<G> GeneratorHandler for G
@@ -99,10 +100,6 @@ where
     fn stop(&mut self) {
         Generator::stop(self)
     }
-
-    fn state(&self) -> SimulationState {
-        Generator::state(self)
-    }
 }
 
 #[derive(Debug)]
@@ -113,6 +110,7 @@ pub enum Msg {
     Disconnected(String),
     Command(Command),
     PublishEvent(PublishEvent),
+    SimulationState(GeneratorId, SimulationState),
 }
 
 pub enum Request {
@@ -138,7 +136,7 @@ pub enum Response {
 pub struct SimulatorState {
     pub running: bool,
     pub state: State,
-    pub simulations: BTreeMap<String, SimulationState>,
+    pub simulations: BTreeMap<String, SimulationDescription>,
 }
 
 impl Default for SimulatorState {
@@ -205,6 +203,7 @@ impl Agent for Simulator {
             simulations: Default::default(),
             data: Default::default(),
             sim_subs: Default::default(),
+            sim_states: Default::default(),
         };
 
         // done
@@ -254,6 +253,38 @@ impl Agent for Simulator {
             Msg::PublishEvent(event) => {
                 self.publish(event);
             }
+            Msg::SimulationState(id, state) => {
+                // update global description list
+
+                let changed = match self.state.simulations.entry(id.clone()) {
+                    Entry::Vacant(e) => {
+                        e.insert(state.description.clone());
+                        true
+                    }
+                    Entry::Occupied(mut e) => {
+                        if e.get() != &state.description {
+                            e.insert(state.description.clone());
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                };
+
+                if changed {
+                    self.send_state();
+                }
+
+                // update subscriptions
+
+                self.sim_states.insert(id.clone(), state.clone());
+                if let Some(subs) = self.sim_subs.get(&id) {
+                    for sub in subs {
+                        self.link
+                            .respond(sub.clone(), Response::SimulationState(state.clone()));
+                    }
+                }
+            }
         }
     }
 
@@ -292,9 +323,9 @@ impl Agent for Simulator {
                 }
             }
             Request::SubscribeSimulation(sim_id) if id.is_respondable() => {
-                if let Some(sim) = self.simulations.get(&sim_id) {
-                    let state = sim.state();
-                    self.link.respond(id, Response::SimulationState(state));
+                if let Some(state) = self.sim_states.get(&sim_id) {
+                    self.link
+                        .respond(id, Response::SimulationState(state.clone()));
                 }
 
                 match self.sim_subs.entry(sim_id) {
@@ -342,14 +373,21 @@ impl Simulator {
     ) -> GeneratorId {
         // start
 
-        let ctx = generators::Context::new(id.clone(), self.link.callback(Msg::PublishEvent));
+        let sim_id = id.clone();
+        let ctx = generators::Context::new(
+            id.clone(),
+            self.link.callback(Msg::PublishEvent),
+            self.link
+                .callback(move |state| Msg::SimulationState(sim_id.clone(), state)),
+        );
         generator.start(ctx);
-        let state = generator.state();
 
         // insert
 
         self.simulations.insert(id.clone(), generator);
-        self.state.simulations.insert(id.clone(), state);
+        self.state
+            .simulations
+            .insert(id.clone(), SimulationDescription { label: id.clone() });
         self.send_state();
 
         // return handle
@@ -497,6 +535,7 @@ impl Simulator {
         match sim {
             Simulation::Sine(props) => Box::new(SineGenerator::new(props.clone())),
             Simulation::Sawtooth(props) => Box::new(SawtoothGenerator::new(props.clone())),
+            Simulation::Wave(props) => Box::new(WaveGenerator::new(props.clone())),
         }
     }
 }
@@ -504,6 +543,12 @@ impl Simulator {
 impl Publisher for Callback<PublishEvent> {
     fn publish(&mut self, event: PublishEvent) {
         self.emit(event);
+    }
+}
+
+impl SimulatorStateUpdate for Callback<SimulationState> {
+    fn state(&mut self, state: SimulationState) {
+        self.emit(state)
     }
 }
 

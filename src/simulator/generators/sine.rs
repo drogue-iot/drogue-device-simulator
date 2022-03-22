@@ -1,13 +1,16 @@
 use super::default_period;
-use crate::simulator::generators::tick::{TickState, TickedGenerator};
-use crate::simulator::generators::{Context, SimulationState, SingleTarget};
+use crate::simulator::generators::{
+    tick::{TickState, TickedGenerator},
+    Context, SimulationState, SingleTarget,
+};
 use crate::simulator::publish::PublisherExt;
 use crate::utils::float::{ApproxF64, Zero};
-use js_sys::{Date, Math::sin};
+use js_sys::Math::sin;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::f64::consts::TAU;
 use std::time::Duration;
+use yew::html;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Properties {
@@ -19,6 +22,7 @@ pub struct Properties {
     #[serde(default = "default_period", with = "humantime_serde")]
     pub period: Duration,
 
+    #[serde(default)]
     pub target: SingleTarget,
 }
 
@@ -57,9 +61,20 @@ impl TickedGenerator for SineGenerator {
         }
     }
 
-    fn tick(state: &mut Self::State, ctx: &mut Context) {
-        let now = Date::now() * (TAU / state.length);
-        let value = sin(now) * state.amplitude;
+    fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {
+        let value = sin(now * (TAU / state.length)) * state.amplitude;
+
+        ctx.update(SimulationState {
+            description: state.target.describe("Sine", DEFAULT_FEATURE),
+            html: html!(
+                <>
+                    <dl>
+                        <dt>{ "Timestamp: "}</dt><dd> { now } </dd>
+                        <dt>{ "Value: "}</dt><dd> { value } </dd>
+                    </dl>
+                </>
+            ),
+        });
 
         ctx.publisher().publish_single(
             &state.target.channel,
@@ -67,19 +82,5 @@ impl TickedGenerator for SineGenerator {
             &state.target.property,
             value,
         );
-    }
-
-    fn state(properties: &Self::Properties) -> SimulationState {
-        SimulationState {
-            label: format!(
-                "Sine ({}/{})",
-                properties.target.channel,
-                properties
-                    .target
-                    .feature
-                    .as_deref()
-                    .unwrap_or(DEFAULT_FEATURE)
-            ),
-        }
     }
 }

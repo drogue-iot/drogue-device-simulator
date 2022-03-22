@@ -1,10 +1,12 @@
 pub mod sawtooth;
 pub mod sine;
 pub mod tick;
+pub mod wave;
 
-use crate::simulator::publish::Publisher;
+use crate::simulator::publish::{Publisher, SimulatorStateUpdate};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use yew::Html;
 
 const fn default_period() -> Duration {
     Duration::from_secs(1)
@@ -32,6 +34,19 @@ impl Default for SingleTarget {
     }
 }
 
+impl SingleTarget {
+    pub fn describe(&self, label: &str, default_feature: &str) -> SimulationDescription {
+        SimulationDescription {
+            label: format!(
+                "{} ({}/{})",
+                label,
+                self.channel,
+                self.feature.as_deref().unwrap_or(default_feature)
+            ),
+        }
+    }
+}
+
 fn default_channel() -> String {
     "state".into()
 }
@@ -43,24 +58,40 @@ fn default_value_property() -> String {
 pub struct Context {
     pub id: String,
     publisher: Box<dyn Publisher>,
+    updater: Box<dyn SimulatorStateUpdate>,
 }
 
 impl Context {
-    pub fn new<P: Publisher + 'static>(id: String, publisher: P) -> Self {
+    pub fn new<P, U>(id: String, publisher: P, updater: U) -> Self
+    where
+        P: Publisher + 'static,
+        U: SimulatorStateUpdate + 'static,
+    {
         Self {
             id,
             publisher: Box::new(publisher),
+            updater: Box::new(updater),
         }
     }
 
     pub fn publisher(&mut self) -> &mut dyn Publisher {
         self.publisher.as_mut()
     }
+
+    pub fn update(&mut self, state: SimulationState) {
+        self.updater.state(state)
+    }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SimulationState {
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SimulationDescription {
     pub label: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SimulationState {
+    pub description: SimulationDescription,
+    pub html: Html,
 }
 
 pub trait Generator {
@@ -71,6 +102,4 @@ pub trait Generator {
 
     fn start(&mut self, ctx: Context);
     fn stop(&mut self);
-
-    fn state(&self) -> SimulationState;
 }

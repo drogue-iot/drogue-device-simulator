@@ -1,5 +1,4 @@
-use crate::simulator::generators::SimulationState;
-use crate::simulator::{Response, SimulatorBridge};
+use crate::simulator::{generators::SimulationState, Response, SimulatorBridge};
 use patternfly_yew::*;
 use yew::prelude::*;
 
@@ -32,7 +31,7 @@ impl Component for Simulation {
         simulator.subscribe_simulation(ctx.props().id.clone());
 
         Self {
-            state: SimulationState { label: "".into() },
+            state: SimulationState::default(),
             _simulator: simulator,
         }
     }
@@ -52,9 +51,12 @@ impl Component for Simulation {
                 <PageSection>
                     <Title level={Level::H1} size={Size::XXXXLarge}>{ "Simulation" }
                         <small>
-                            { format!(" – {}", self.state.label) }
+                            { format!(" – {}", self.state.description.label) }
                         </small>
                     </Title>
+                </PageSection>
+                <PageSection variant={PageSectionVariant::Light} fill={true}>
+                    { self.state.html.clone() }
                 </PageSection>
             </>
         )
