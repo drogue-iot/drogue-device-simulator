@@ -49,41 +49,48 @@ impl Component for Publish {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         html!(
-            <PageSection variant={PageSectionVariant::Light} fill={true}>
-                <Flex>
-                    <FlexItem modifiers={[FlexModifier::Grow]}>
-                        <Form horizontal={[FormHorizontal]} >
-                            <FormGroup
-                                required=true
-                                label="Channel"
-                                >
-                                <TextInput
-                                    value="state"
-                                    ref={self.refs.channel.clone()}
-                                />
-                            </FormGroup>
+            <>
+                <PageSection variant={PageSectionVariant::Light}>
+                    <Content>
+                        { "Using this page you can send arbitrary data. This directly triggers an event, without using the internal device state management." }
+                    </Content>
+                </PageSection>
+                <PageSection variant={PageSectionVariant::Light} fill={true}>
+                    <Flex>
+                        <FlexItem modifiers={[FlexModifier::Grow]}>
+                            <Form horizontal={[FormHorizontal]} >
+                                <FormGroup
+                                    required=true
+                                    label="Channel"
+                                    >
+                                    <TextInput
+                                        value="state"
+                                        ref={self.refs.channel.clone()}
+                                    />
+                                </FormGroup>
 
-                            <FormGroup
-                                label="Payload"
-                                >
-                                <TextArea
-                                    value=""
-                                    resize={ResizeOrientation::Vertical}
-                                    spellcheck=false
-                                    wrap={Wrap::Off}
-                                    rows=15
-                                    ref={self.refs.payload.clone()}
-                                />
-                            </FormGroup>
+                                <FormGroup
+                                    label="Payload"
+                                    >
+                                    <TextArea
+                                        value=""
+                                        resize={ResizeOrientation::Vertical}
+                                        spellcheck=false
+                                        wrap={Wrap::Off}
+                                        rows=15
+                                        ref={self.refs.payload.clone()}
+                                    />
+                                </FormGroup>
 
-                            <ActionGroup>
-                                <Button label={"Send"} variant={Variant::Primary} onclick={ctx.link().callback(|_|Msg::Send)}/>
-                            </ActionGroup>
-                        </Form>
-                    </FlexItem>
-                    <FlexItem modifiers={[FlexModifier::Grow]}></FlexItem>
-                </Flex>
-            </PageSection>
+                                <ActionGroup>
+                                    <Button label={"Send"} variant={Variant::Primary} onclick={ctx.link().callback(|_|Msg::Send)}/>
+                                </ActionGroup>
+                            </Form>
+                        </FlexItem>
+                        <FlexItem modifiers={[FlexModifier::Grow]}></FlexItem>
+                    </Flex>
+                </PageSection>
+            </>
         )
     }
 }

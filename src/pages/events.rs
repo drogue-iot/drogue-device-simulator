@@ -110,6 +110,20 @@ impl Component for Events {
 
         html!(
             <>
+                <PageSection variant={PageSectionVariant::Light} limit_width=true>
+                    <Flex>
+                        <FlexItem modifiers={[FlexModifier::Flex3.all()]}>
+                            <Content>
+                        { r#"
+This page shows the data sent towards the cloud. Event though simulations may be running, this only
+shows events when they are actually sent to the cloud. So the device must be connected for events
+to show up here.
+                        "# }
+                            </Content>
+                        </FlexItem>
+                        <FlexItem modifiers={[FlexModifier::Flex2.on(Breakpoint::XLarge), FlexModifier::Flex3.on(Breakpoint::XXLarge)]}></FlexItem>
+                    </Flex>
+                </PageSection>
                 <PageSection variant={PageSectionVariant::Light} fill={true}>
                     <Toolbar>
                         <ToolbarGroup>
