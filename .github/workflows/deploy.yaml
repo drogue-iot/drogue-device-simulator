@@ -54,6 +54,10 @@ jobs:
           npm install
           trunk build --release
 
+      - name: Copy additional assets
+        run: |
+          cp 404.html ./dist
+
       - name: Log content
         run: |
           find ./dist
