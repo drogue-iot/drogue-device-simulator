@@ -69,7 +69,7 @@ jobs:
       - name: Build
         run: |
           npm install
-          trunk build --release --public-url /${BASE}/${VERSION}
+          trunk build --release --public-url ${BASE}/${VERSION}
 
       - name: Stage content
         run: |
