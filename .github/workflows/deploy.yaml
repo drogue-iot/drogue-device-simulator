@@ -1,0 +1,79 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - release/v*
+
+jobs:
+
+  deploy:
+
+    env:
+      BASE: /drogue-device-simulator
+
+    runs-on: ubuntu-20.04
+
+    steps:
+
+      - name: Detect version
+        run: |
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          [ "$VERSION" == "main" ] && VERSION=latest
+          echo VERSION=$VERSION
+          echo "::set-output name=version::$VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v2
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+          target: wasm32-unknown-unknown
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - uses: actions/cache@v2
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Add .local/bin to path
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install Trunk
+        run: |
+          curl -sSL https://github.com/thedodd/trunk/releases/download/v0.14.0/trunk-x86_64-unknown-linux-gnu.tar.gz -o trunk.tar.gz
+          tar xzvf trunk.tar.gz
+          install -m 0755 trunk  "$HOME/.local/bin"
+
+      - name: Show info
+        run: |
+          echo "Base: ${BASE}"
+          echo "Version: ${VERSION}"
+
+      - name: Build
+        run: |
+          npm install
+          trunk build --release --public-url /${BASE}/${VERSION}
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./staging
+          destination_dir: ${VERSION}
