@@ -155,7 +155,7 @@ impl Component for ApplicationView {
         };
 
         let logo = html_nested! {
-            <Logo src="/images/logo.png" alt="Drogue IoT" />
+            <Logo src="images/logo.png" alt="Drogue IoT" />
         };
 
         let tools = vec![
