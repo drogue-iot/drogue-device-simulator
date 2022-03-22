@@ -37,7 +37,7 @@ impl TickState for State {
 
 pub struct SineGenerator;
 
-const DEFAULT_FEATURE: &str = "sawtooth";
+const DEFAULT_FEATURE: &str = "sine";
 
 impl TickedGenerator for SineGenerator {
     type Properties = Properties;
