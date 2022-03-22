@@ -52,7 +52,7 @@ jobs:
       - name: Build
         run: |
           npm install
-          trunk build --release --public-url ${VERSION}
+          trunk build --release
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
