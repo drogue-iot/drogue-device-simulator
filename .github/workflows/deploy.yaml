@@ -74,7 +74,7 @@ jobs:
       - name: Stage content
         run: |
           mkdir staging
-          cp -av dist/ staging
+          cp -av dist/. staging/
           find staging
 
       - name: Deploy
