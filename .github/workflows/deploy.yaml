@@ -18,6 +18,7 @@ jobs:
     steps:
 
       - name: Detect version
+        id: info
         run: |
           VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
           [ "$VERSION" == "main" ] && VERSION=latest
@@ -82,4 +83,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./staging
-          destination_dir: ${VERSION}
+          destination_dir: ${{ steps.info.outputs.version }}
