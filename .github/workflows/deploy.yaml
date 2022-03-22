@@ -71,6 +71,12 @@ jobs:
           npm install
           trunk build --release --public-url /${BASE}/${VERSION}
 
+      - name: Stage content
+        run: |
+          mkdir staging
+          cp dist/ staging
+          find staging
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
