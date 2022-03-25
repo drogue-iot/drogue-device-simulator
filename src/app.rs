@@ -23,6 +23,8 @@ pub enum AppRoute {
     Events,
     #[to = "/config"]
     Configuration,
+    #[to = "/state"]
+    State,
     #[to = "/simulation/{:id}"]
     Simulation(String),
     #[to = "/!"]
@@ -145,6 +147,7 @@ impl Component for ApplicationView {
                             <NavRouterItem<AppRoute> to={AppRoute::Events}>{"Events"}</NavRouterItem<AppRoute>>
                             <NavRouterItem<AppRoute> to={AppRoute::Publish}>{"Publish"}</NavRouterItem<AppRoute>>
                             <NavRouterItem<AppRoute> to={AppRoute::Commands}>{"Received Commands"}</NavRouterItem<AppRoute>>
+                            <NavRouterItem<AppRoute> to={AppRoute::State}>{"Internal State"}</NavRouterItem<AppRoute>>
                         </NavRouterExpandable<AppRoute>>
                         <NavRouterExpandable<AppRoute> title="Simulations" expanded=true>
                             { for generators.into_iter() }
@@ -196,6 +199,7 @@ impl Component for ApplicationView {
                                     AppRoute::Connection => html!{<pages::AppPage<pages::Connection>/>},
                                     AppRoute::Publish => html!{<pages::AppPage<pages::Publish>/>},
                                     AppRoute::Commands => html!{<pages::AppPage<pages::Commands>/>},
+                                    AppRoute::State => html!{<pages::AppPage<pages::State>/>},
                                     AppRoute::Events => html!{<pages::AppPage<pages::Events>/>},
                                     AppRoute::Configuration => html!{<pages::AppPage<pages::Configuration>/>},
                                     AppRoute::Simulation(id) => html!{<pages::Simulation id={id}/>}

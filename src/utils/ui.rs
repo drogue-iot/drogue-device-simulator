@@ -1,8 +1,6 @@
 use patternfly_yew::*;
 use serde_json::Value;
-use std::fmt::format;
 use yew::prelude::*;
-use yew::virtual_dom::VNode;
 
 pub fn render_payload(data: &[u8], expanded: bool) -> Html {
     if let Ok(json) = serde_json::from_slice::<Value>(data) {

@@ -78,10 +78,12 @@ pub struct Simulator {
     events: Vec<Event>,
 
     simulations: HashMap<GeneratorId, Box<dyn GeneratorHandler>>,
-    data: BTreeMap<String, ChannelState>,
+    data: InternalState,
 
     sim_subs: BTreeMap<GeneratorId, Vec<HandlerId>>,
     sim_states: BTreeMap<GeneratorId, SimulationState>,
+
+    internal_subs: Vec<HandlerId>,
 }
 
 trait GeneratorHandler {
@@ -121,6 +123,8 @@ pub enum Request {
     FetchEventHistory,
     SubscribeSimulation(String),
     UnsubscribeSimulation(String),
+    SubscribeInternalState,
+    UnsubscribeInternalState,
 }
 
 pub enum Response {
@@ -130,6 +134,7 @@ pub enum Response {
     CommandHistory(Vec<Command>),
     Event(Rc<Event>),
     EventHistory(Vec<Event>),
+    InternalState(InternalState),
 }
 
 #[derive(Clone, Debug)]
@@ -177,6 +182,9 @@ impl State {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct InternalState(pub BTreeMap<String, ChannelState>);
+
 impl Agent for Simulator {
     type Reach = Context<Self>;
     type Message = Msg;
@@ -204,6 +212,7 @@ impl Agent for Simulator {
             data: Default::default(),
             sim_subs: Default::default(),
             sim_states: Default::default(),
+            internal_subs: Default::default(),
         };
 
         // done
@@ -347,6 +356,15 @@ impl Agent for Simulator {
                 }
                 Entry::Vacant(_) => {}
             },
+            Request::SubscribeInternalState if id.is_respondable() => {
+                self.internal_subs.push(id.clone());
+                self.link
+                    .respond(id, Response::InternalState(self.data.clone()));
+            }
+            Request::SubscribeInternalState => {}
+            Request::UnsubscribeInternalState => {
+                self.internal_subs.retain(|i| i != &id);
+            }
         }
     }
 
@@ -363,6 +381,13 @@ impl Simulator {
         for id in &self.subscribers {
             self.link
                 .respond(id.clone(), Response::State(self.state.clone()));
+        }
+    }
+
+    fn send_internal_state(&self) {
+        for id in &self.internal_subs {
+            self.link
+                .respond(id.clone(), Response::InternalState(self.data.clone()));
         }
     }
 
@@ -427,10 +452,10 @@ impl Simulator {
                 if let Ok(payload) = serde_json::to_vec(&state) {
                     self.publish_raw(&channel, payload);
                 }
-                self.data.insert(channel, state);
+                self.data.0.insert(channel, state);
             }
             PublishEvent::Single { channel, state } => {
-                let entry = self.data.entry(channel.clone());
+                let entry = self.data.0.entry(channel.clone());
                 let state = match entry {
                     Entry::Vacant(e) => {
                         let mut features = HashMap::new();
@@ -449,6 +474,7 @@ impl Simulator {
                 self.publish_channel_state(&channel, &state);
             }
         }
+        self.send_internal_state();
     }
 
     fn publish_channel_state(&mut self, channel: &str, state: &ChannelState) {
