@@ -1,4 +1,6 @@
+use patternfly_yew::*;
 use serde_json::Value;
+use std::fmt::format;
 use yew::prelude::*;
 use yew::virtual_dom::VNode;
 
@@ -27,30 +29,31 @@ pub fn render_payload(data: &[u8], expanded: bool) -> Html {
 }
 
 pub trait ToDetail {
-    fn to_details(&self) -> (VNode, VNode);
+    fn to_details(&self) -> (String, String);
 }
 
 impl<V> ToDetail for (&str, V)
 where
-    V: Into<VNode> + Clone,
+    V: ToString,
 {
-    fn to_details(&self) -> (VNode, VNode) {
-        (self.0.into(), self.1.clone().into())
+    fn to_details(&self) -> (String, String) {
+        (self.0.into(), self.1.to_string())
     }
 }
 
 pub fn details<'d, const N: usize>(details: [&dyn ToDetail; N]) -> Html {
     html!(
-        <dl>
+        <Form>
           { for details.into_iter().map(|details|{
               let (label, value) = details.to_details();
               html!(
-                  <>
-                    <dt>{ label }{ ":" }</dt>
-                    <dd>{ value }</dd>
-                  </>
+                  <FormGroup
+                    label={format!("{label}:")}
+                  >
+                    <TextInput value={value} readonly=true />
+                  </FormGroup>
               )
           })}
-        </dl>
+        </Form>
     )
 }
