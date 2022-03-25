@@ -107,7 +107,7 @@ where
                         };
                         last = next;
                         G::tick(now, &mut state, &mut ctx);
-                        log::info!("Next delay: {delay}");
+                        log::trace!("Next delay: {delay}");
                         tick = TimeoutFuture::new(delay.to_u32().unwrap_or(u32::MAX)).fuse();
                     }
                 }

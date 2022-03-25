@@ -4,13 +4,14 @@ use crate::simulator::generators::{
     Context, SimulationState, SingleTarget,
 };
 use crate::simulator::publish::PublisherExt;
-use crate::utils::float::{ApproxF64, Zero};
+use crate::utils::{
+    float::{ApproxF64, Zero},
+    ui::details,
+};
 use js_sys::Math::sin;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
-use std::f64::consts::TAU;
-use std::time::Duration;
-use yew::html;
+use std::{f64::consts::TAU, time::Duration};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Properties {
@@ -66,14 +67,7 @@ impl TickedGenerator for SineGenerator {
 
         ctx.update(SimulationState {
             description: state.target.describe("Sine", DEFAULT_FEATURE),
-            html: html!(
-                <>
-                    <dl>
-                        <dt>{ "Timestamp: "}</dt><dd> { now } </dd>
-                        <dt>{ "Value: "}</dt><dd> { value } </dd>
-                    </dl>
-                </>
-            ),
+            html: details([&("Timestamp", now), &("Value", value)]),
         });
 
         ctx.publisher().publish_single(

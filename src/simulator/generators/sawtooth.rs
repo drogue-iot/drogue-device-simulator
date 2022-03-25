@@ -3,6 +3,7 @@ use crate::simulator::generators::tick::{TickState, TickedGenerator};
 use crate::simulator::generators::{Context, SimulationState, SingleTarget};
 use crate::simulator::publish::PublisherExt;
 use crate::utils::float::{ApproxF64, Zero};
+use crate::utils::ui::details;
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -59,7 +60,7 @@ impl TickedGenerator for SawtoothGenerator {
 
         ctx.update(SimulationState {
             description: state.target.describe("Sawtooth", DEFAULT_FEATURE),
-            html: Default::default(),
+            html: details([&("Timestamp", now), &("Value", value)]),
         });
 
         ctx.publisher().publish_single(

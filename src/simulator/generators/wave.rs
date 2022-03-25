@@ -1,15 +1,18 @@
 use super::default_period;
-use crate::simulator::generators::tick::{TickState, TickedGenerator};
-use crate::simulator::generators::{Context, SimulationState, SingleTarget};
-use crate::simulator::publish::PublisherExt;
-use crate::utils::float::{ApproxF64, Zero};
-use js_sys::Date;
+use crate::utils::ui::details;
+use crate::{
+    simulator::{
+        generators::{
+            tick::{TickState, TickedGenerator},
+            Context, SimulationState, SingleTarget,
+        },
+        publish::PublisherExt,
+    },
+    utils::float::{ApproxF64, Zero},
+};
 use js_sys::Math::sin;
-use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
-use std::f64::consts::TAU;
-use std::time::{Duration, SystemTime};
-use yew::prelude::*;
+use std::{f64::consts::TAU, time::Duration};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Properties {
@@ -73,14 +76,7 @@ impl TickedGenerator for WaveGenerator {
 
         ctx.update(SimulationState {
             description: state.target.describe("Wave", DEFAULT_FEATURE),
-            html: html!(
-                <>
-                    <dl>
-                        <dt>{ "Timestamp: "}</dt><dd> { now } </dd>
-                        <dt>{ "Value: "}</dt><dd> { value } </dd>
-                    </dl>
-                </>
-            ),
+            html: details([&("Timestamp", now), &("Value", value)]),
         });
 
         ctx.publisher().publish_single(
