@@ -18,7 +18,7 @@ js-sys = "0.3.50"
 log = "0.4"
 monaco = { version = "0.3", features = ["yew-components"] }
 num-traits = "0.2"
-patternfly-yew = "0.1.3"
+patternfly-yew = "0.2.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.8"
@@ -54,8 +54,7 @@ web-sys = { version = "0.3", features = [
 ] }
 
 [patch.crates-io]
-monaco = { git = "https://github.com/siku2/rust-monaco", rev = "cb20108c317976ba8c3d05b581a84efd394c3dbe" } # FIXME: awaiting release
-patternfly-yew = { git = "https://github.com/ctron/patternfly-yew", rev = "974ee3e5071cb5bef0c6031a43f123c1fee34ab9" }
+patternfly-yew = { git = "https://github.com/ctron/patternfly-yew", rev = "28141bf103cf28ea205cb27b7189ebaca7fa4115" }
 #patternfly-yew = { path = "../patternfly-yew" }
 
 [dev-dependencies]

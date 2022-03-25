@@ -16,6 +16,24 @@ impl ApplicationPage for State {
     fn title() -> String {
         "State".into()
     }
+
+    fn help() -> Option<Html> {
+        Some(html!(
+            <Content>
+                <p>
+                {r#"
+This page shows internal state of all simulations as it would be sent to the cloud, formatted as simple JSON. This does not include
+manually events sent directly.
+                "#}
+                </p>
+                <p>
+                {r#"
+NOTE: The root level is the channel. Each channel will be sent to the cloud individually.
+                "#}
+                </p>
+            </Content>
+        ))
+    }
 }
 
 #[derive(Debug)]
@@ -65,7 +83,7 @@ impl Component for State {
         true
     }
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
+    fn view(&self, _ctx: &Context<Self>) -> Html {
         html!(
             <PageSection variant={PageSectionVariant::Light} fill={true}>
                 <Stack>
