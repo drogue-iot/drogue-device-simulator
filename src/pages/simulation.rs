@@ -61,7 +61,7 @@ impl Component for Simulation {
     fn view(&self, _ctx: &Context<Self>) -> Html {
         html!(
             <>
-                <PageSection>
+                <PageSection variant={PageSectionVariant::Light}>
                     <Title level={Level::H1} size={Size::XXXXLarge}>{ "Simulation" }
                         <small>
                             { format!(" – {}", self.state.description.label) }

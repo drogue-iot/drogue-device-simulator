@@ -1,3 +1,4 @@
+mod add;
 mod commands;
 mod config;
 mod connection;
@@ -7,6 +8,7 @@ mod publish;
 mod simulation;
 mod state;
 
+pub use add::*;
 pub use commands::*;
 pub use config::*;
 pub use connection::*;
@@ -16,7 +18,9 @@ pub use publish::*;
 pub use simulation::*;
 pub use state::*;
 
-use patternfly_yew::{Flex, FlexItem, Icon, Level, PageSection, Popover, Size, Title};
+use patternfly_yew::{
+    Flex, FlexItem, Icon, Level, PageSection, PageSectionVariant, Popover, Size, Title,
+};
 use std::marker::PhantomData;
 use yew::prelude::*;
 
@@ -74,7 +78,7 @@ where
 
         html!(
             <>
-                <PageSection>
+                <PageSection variant={PageSectionVariant::Light}>
                     <Flex>
                         <FlexItem>
                             <Title level={Level::H1} size={Size::XXXXLarge}>{ P::title() } </Title>

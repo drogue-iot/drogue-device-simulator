@@ -131,6 +131,7 @@ dependencies = [
  "gloo-utils",
  "humantime",
  "humantime-serde",
+ "itertools",
  "js-sys",
  "log",
  "monaco",
@@ -139,6 +140,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "strum 0.24.0",
  "url",
  "uuid",
  "wasm-bindgen",
@@ -149,6 +151,12 @@ dependencies = [
  "yew-agent",
  "yew-router-nested",
 ]
+
+[[package]]
+name = "either"
+version = "1.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "env_logger"
@@ -441,6 +449,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "heck"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2540771e65fc8cb83cd6e8a237f70c319bd5c29f78ed1084ba5d50eeac86f7f9"
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -484,6 +498,15 @@ checksum = "282a6247722caba404c065016bbfa522806e51714c34f5dfc3e4a3a46fcb4223"
 dependencies = [
  "autocfg",
  "hashbrown",
+]
+
+[[package]]
+name = "itertools"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9a9d19fa1e79b6215ff29b9d6880b706147f16e9b1dbb1e4e5947b5b02bc5e3"
+dependencies = [
+ "either",
 ]
 
 [[package]]
@@ -605,7 +628,7 @@ checksum = "0744126afe1a6dd7f394cb50a716dbe086cb06e255e53d8d0185d82828358fb5"
 [[package]]
 name = "patternfly-yew"
 version = "0.2.0"
-source = "git+https://github.com/ctron/patternfly-yew?rev=28141bf103cf28ea205cb27b7189ebaca7fa4115#28141bf103cf28ea205cb27b7189ebaca7fa4115"
+source = "git+https://github.com/ctron/patternfly-yew?rev=65a46b32373066c06718da97ed4ad774d1921d8c#65a46b32373066c06718da97ed4ad774d1921d8c"
 dependencies = [
  "chrono",
  "gloo-timers",
@@ -614,8 +637,8 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
- "strum",
- "strum_macros",
+ "strum 0.19.5",
+ "strum_macros 0.19.4",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -703,6 +726,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f497285884f3fcff424ffc933e56d7cbca511def0c9831a7f9b5f6153e3cc89b"
 
 [[package]]
+name = "rustversion"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2cc38e8fa666e2de3c4aba7edeb5ffc5246c1c2ed0e3d17e560aeeba736b23f"
+
+[[package]]
 name = "ryu"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -776,14 +805,36 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b89a286a7e3b5720b9a477b23253bc50debac207c8d21505f8e70b36792f11b5"
 
 [[package]]
+name = "strum"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e96acfc1b70604b8b2f1ffa4c57e59176c7dbb05d556c71ecd2f5498a1dee7f8"
+dependencies = [
+ "strum_macros 0.24.0",
+]
+
+[[package]]
 name = "strum_macros"
 version = "0.19.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e61bb0be289045cb80bfce000512e32d09f8337e54c186725da381377ad1f8d5"
 dependencies = [
- "heck",
+ "heck 0.3.3",
  "proc-macro2",
  "quote",
+ "syn",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6878079b17446e4d3eba6192bb0a2950d5b14f0ed8424b852310e5a94345d0ef"
+dependencies = [
+ "heck 0.4.0",
+ "proc-macro2",
+ "quote",
+ "rustversion",
  "syn",
 ]
 

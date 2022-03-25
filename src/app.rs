@@ -25,6 +25,8 @@ pub enum AppRoute {
     Configuration,
     #[to = "/state"]
     State,
+    #[to = "/add"]
+    Add,
     #[to = "/simulation/{:id}"]
     Simulation(String),
     #[to = "/!"]
@@ -150,6 +152,7 @@ impl Component for ApplicationView {
                             <NavRouterItem<AppRoute> to={AppRoute::State}>{"Internal State"}</NavRouterItem<AppRoute>>
                         </NavRouterExpandable<AppRoute>>
                         <NavRouterExpandable<AppRoute> title="Simulations" expanded=true>
+                            <NavRouterItem<AppRoute> to={AppRoute::Add}>{ Icon::PlusCircleIcon} <span class="pf-u-px-sm">{ "Add" }</span> </NavRouterItem<AppRoute>>
                             { for generators.into_iter() }
                         </NavRouterExpandable<AppRoute>>
                     </NavList>
@@ -202,6 +205,7 @@ impl Component for ApplicationView {
                                     AppRoute::State => html!{<pages::AppPage<pages::State>/>},
                                     AppRoute::Events => html!{<pages::AppPage<pages::Events>/>},
                                     AppRoute::Configuration => html!{<pages::AppPage<pages::Configuration>/>},
+                                    AppRoute::Add => html!{<pages::AppPage<pages::Add>/>},
                                     AppRoute::Simulation(id) => html!{<pages::Simulation id={id}/>}
                                 }
                             })}
