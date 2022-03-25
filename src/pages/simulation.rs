@@ -8,8 +8,9 @@ pub struct Properties {
 }
 
 pub struct Simulation {
-    _simulator: SimulatorBridge,
+    simulator: SimulatorBridge,
 
+    simulation_id: String,
     state: SimulationState,
 }
 
@@ -32,7 +33,8 @@ impl Component for Simulation {
 
         Self {
             state: SimulationState::default(),
-            _simulator: simulator,
+            simulation_id: ctx.props().id.clone(),
+            simulator,
         }
     }
 
@@ -41,6 +43,17 @@ impl Component for Simulation {
             Msg::State(state) => {
                 self.state = state;
             }
+        }
+        true
+    }
+
+    fn changed(&mut self, ctx: &Context<Self>) -> bool {
+        if self.simulation_id != ctx.props().id {
+            self.simulator
+                .unsubscribe_simulation(self.simulation_id.clone());
+            self.simulation_id = ctx.props().id.clone();
+            self.simulator
+                .subscribe_simulation(self.simulation_id.clone());
         }
         true
     }

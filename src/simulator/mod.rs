@@ -575,6 +575,10 @@ impl SimulatorBridge {
         self.send(Request::SubscribeSimulation(id));
     }
 
+    pub fn unsubscribe_simulation(&mut self, id: String) {
+        self.send(Request::UnsubscribeSimulation(id));
+    }
+
     pub fn start(&mut self) {
         self.send(Request::Start);
     }
