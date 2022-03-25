@@ -109,6 +109,18 @@ impl Component for Commands {
 
         html!(
             <>
+                <PageSection variant={PageSectionVariant::Light} limit_width=true>
+                    <Flex>
+                        <FlexItem modifiers={[FlexModifier::Flex3.all()]}>
+                            <Content>
+                        { r#"
+Commands received by the device simulator. Received commands don't necessarly trigger any actions.
+                        "# }
+                            </Content>
+                        </FlexItem>
+                        <FlexItem modifiers={[FlexModifier::Flex2.on(Breakpoint::XLarge), FlexModifier::Flex3.on(Breakpoint::XXLarge)]}></FlexItem>
+                    </Flex>
+                </PageSection>
                 <PageSection variant={PageSectionVariant::Light} fill={true}>
                     <Toolbar>
                         <ToolbarGroup>
