@@ -2,6 +2,7 @@ use super::default_period;
 use crate::simulator::generators::tick::{TickState, TickedGenerator};
 use crate::simulator::generators::{Context, SimulationState, SingleTarget};
 use crate::simulator::publish::PublisherExt;
+use crate::simulator::Claim;
 use crate::utils::float::{ApproxF64, Zero};
 use crate::utils::ui::details;
 use num_traits::ToPrimitive;
@@ -53,6 +54,10 @@ impl TickedGenerator for SawtoothGenerator {
             period: properties.period,
             target: properties.target.clone(),
         }
+    }
+
+    fn make_claims(properties: &Self::Properties) -> Vec<Claim> {
+        properties.target.claims(DEFAULT_FEATURE)
     }
 
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {

@@ -1,4 +1,5 @@
 use crate::simulator::generators::{Context, Generator};
+use crate::simulator::Claim;
 use futures::channel::mpsc;
 use futures::{select, FutureExt, SinkExt, StreamExt};
 use gloo_timers::future::TimeoutFuture;
@@ -13,6 +14,7 @@ pub trait TickedGenerator: Sized {
 
     fn make_state(properties: &Self::Properties, current_state: Option<Self::State>)
         -> Self::State;
+    fn make_claims(properties: &Self::Properties) -> Vec<Claim>;
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context);
 
     fn new(properties: Self::Properties) -> TickingGenerator<Self> {
@@ -29,6 +31,7 @@ where
     G: TickedGenerator,
 {
     properties: G::Properties,
+    claims: Vec<Claim>,
     tx: Option<mpsc::UnboundedSender<Msg<G::Properties>>>,
 }
 
@@ -43,10 +46,16 @@ where
     type Properties = G::Properties;
 
     fn new(properties: Self::Properties) -> Self {
+        let claims = G::make_claims(&properties);
         Self {
             properties,
             tx: None,
+            claims,
         }
+    }
+
+    fn claims(&self) -> &[Claim] {
+        &self.claims
     }
 
     fn update(&mut self, properties: Self::Properties) {
@@ -57,6 +66,7 @@ where
 
         // update our state
         self.properties = properties.clone();
+        self.claims = G::make_claims(&properties);
 
         // send to loop
         if let Some(tx) = &self.tx {

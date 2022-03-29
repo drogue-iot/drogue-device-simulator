@@ -1,6 +1,9 @@
-use crate::app::AppRoute;
+use crate::simulator::generators::SimulationFactory;
+use crate::simulator::Claim;
 use crate::{
+    app::AppRoute,
     data::{SharedDataDispatcher, SharedDataOps},
+    edit::*,
     pages::ApplicationPage,
     settings::{Settings, Simulation},
     simulator::{
@@ -9,24 +12,17 @@ use crate::{
     },
     utils::to_yaml,
 };
-use futures::SinkExt;
 use itertools::Itertools;
 use patternfly_yew::*;
 use serde_json::{json, Value};
-use std::fmt::format;
-use std::{
-    collections::HashSet,
-    convert::Infallible,
-    fmt::{Display, Formatter},
-    num::ParseFloatError,
-    rc::Rc,
-    time::Duration,
-};
+use std::{collections::HashSet, rc::Rc, time::Duration};
 use strum::{EnumDiscriminants, EnumIter, EnumMessage, IntoEnumIterator};
 use uuid::Uuid;
 use yew::prelude::*;
-use yew_router::agent::{RouteAgent, RouteAgentBridge, RouteAgentDispatcher, RouteRequest};
-use yew_router::prelude::{Route, Router};
+use yew_router::{
+    agent::{RouteAgentDispatcher, RouteRequest},
+    prelude::Route,
+};
 
 #[derive(Clone, Debug, EnumDiscriminants)]
 #[strum_discriminants(derive(strum::Display, EnumMessage, EnumIter))]
@@ -55,6 +51,10 @@ impl SimulationTypes {
             Self::Sawtooth(props) => Simulation::Sawtooth(props.as_ref().clone()),
             Self::Wave(props) => Simulation::Wave(props.as_ref().clone()),
         }
+    }
+
+    pub fn to_claims(&self) -> Vec<Claim> {
+        self.to_simulation().create().claims().to_vec()
     }
 }
 
@@ -110,6 +110,8 @@ pub struct Add {
     simulator_state: SimulatorState,
     _simulator: SimulatorBridge,
     settings_agent: SharedDataDispatcher<Settings>,
+
+    validation_result: Option<FormAlert>,
 }
 
 impl ApplicationPage for Add {
@@ -132,6 +134,7 @@ impl Component for Add {
             simulator_state: Default::default(),
             _simulator: simulator,
             settings_agent,
+            validation_result: Default::default(),
         }
     }
 
@@ -139,12 +142,17 @@ impl Component for Add {
         match msg {
             Msg::Selected(sel) => {
                 self.content = sel.make_default();
+                self.validate();
             }
             Msg::SimulatorState(simulator_state) => {
                 self.simulator_state = simulator_state;
+                self.validate();
             }
             Msg::SetId(id) => self.id = id,
-            Msg::Set(setter) => setter(&mut self.content),
+            Msg::Set(setter) => {
+                setter(&mut self.content);
+                self.validate();
+            }
             Msg::Add => {
                 self.add();
             }
@@ -154,8 +162,6 @@ impl Component for Add {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         let ids: HashSet<_> = self.simulator_state.simulations.keys().cloned().collect();
-
-        // FIXME: must also evaluate claims
 
         let is_unique = Validator::Custom(Rc::new(move |ctx: ValidationContext<String>| {
             if ctx.value.is_empty() {
@@ -174,7 +180,10 @@ impl Component for Add {
                 <Grid gutter=true>
                     <GridItem cols={[6.lg(), 12.all()]} >
 
-                        <Form horizontal={[FormHorizontal.xl()]}>
+                        <Form
+                            alert={self.validation_result.clone()}
+                            horizontal={[FormHorizontal.xl()]}
+                        >
 
                             <FormGroupValidated<TextInput>
                                 required=true
@@ -402,132 +411,19 @@ impl Add {
             </FormSection>
         </>)
     }
-}
 
-pub trait FieldType {
-    type Type: ToString + 'static;
-    type ParseError;
-
-    fn required() -> bool;
-
-    fn base_validator() -> Option<Validator<String, ValidationResult>>;
-    fn parse(value: &str) -> Result<Self::Type, Self::ParseError>;
-}
-
-pub struct Optional<T>(pub Option<T>);
-
-impl<T> From<Option<T>> for Optional<T> {
-    fn from(value: Option<T>) -> Self {
-        Optional(value)
-    }
-}
-
-impl<T> Display for Optional<T>
-where
-    T: Display,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            Some(v) => v.fmt(f),
-            None => Ok(()),
-        }
-    }
-}
-
-pub struct StringOptional;
-
-impl FieldType for StringOptional {
-    type Type = Optional<String>;
-    type ParseError = Infallible;
-
-    fn required() -> bool {
-        false
-    }
-
-    fn base_validator() -> Option<Validator<String, ValidationResult>> {
-        None
-    }
-
-    fn parse(value: &str) -> Result<Self::Type, Self::ParseError> {
-        if value.is_empty() {
-            Ok(None.into())
+    fn validate(&mut self) {
+        let claims = self.content.to_claims();
+        self.validation_result = if self.simulator_state.claims.is_claimed_any(&claims) {
+            Some(FormAlert {
+                r#type: Type::Warning,
+                title: "Conflicting claims".into(),
+                children: html!({
+                    "The simulation will conflict with targets of existing simulations."
+                }),
+            })
         } else {
-            Ok(Some(value.to_string()).into())
-        }
-    }
-}
-
-pub struct StringRequired;
-
-impl FieldType for StringRequired {
-    type Type = String;
-    type ParseError = Infallible;
-
-    fn required() -> bool {
-        true
-    }
-
-    fn base_validator() -> Option<Validator<String, ValidationResult>> {
-        Some(Validator::from(|ctx: ValidationContext<String>| {
-            if ctx.value.is_empty() {
-                ValidationResult::error("Value must not be empty")
-            } else {
-                ValidationResult::ok()
-            }
-        }))
-    }
-
-    fn parse(value: &str) -> Result<Self::Type, Self::ParseError> {
-        Ok(value.to_string())
-    }
-}
-
-pub struct FloatRequired;
-
-impl FieldType for FloatRequired {
-    type Type = f64;
-    type ParseError = ParseFloatError;
-
-    fn required() -> bool {
-        true
-    }
-
-    fn base_validator() -> Option<Validator<String, ValidationResult>> {
-        Some(Validator::from(|ctx: ValidationContext<String>| {
-            if let Err(err) = Self::parse(&ctx.value) {
-                ValidationResult::error(format!("Must be a floating-point number: {}", err))
-            } else {
-                ValidationResult::ok()
-            }
-        }))
-    }
-
-    fn parse(value: &str) -> Result<Self::Type, Self::ParseError> {
-        value.parse::<Self::Type>()
-    }
-}
-
-pub struct DurationRequired;
-
-impl FieldType for DurationRequired {
-    type Type = humantime::Duration;
-    type ParseError = humantime::DurationError;
-
-    fn required() -> bool {
-        true
-    }
-
-    fn base_validator() -> Option<Validator<String, ValidationResult>> {
-        Some(Validator::from(|ctx: ValidationContext<String>| {
-            if let Err(err) = Self::parse(&ctx.value) {
-                ValidationResult::error(format!("Must be a duration: {}", err))
-            } else {
-                ValidationResult::ok()
-            }
-        }))
-    }
-
-    fn parse(value: &str) -> Result<Self::Type, Self::ParseError> {
-        value.parse::<Self::Type>()
+            None
+        };
     }
 }

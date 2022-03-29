@@ -3,7 +3,10 @@ pub mod sine;
 pub mod tick;
 pub mod wave;
 
+use crate::settings::Simulation;
+use crate::simulator::generators::tick::TickedGenerator;
 use crate::simulator::publish::{Publisher, SimulatorStateUpdate};
+use crate::simulator::Claim;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use yew::Html;
@@ -44,6 +47,18 @@ impl SingleTarget {
                 self.feature.as_deref().unwrap_or(default_feature)
             ),
         }
+    }
+
+    pub fn claims(&self, default_feature: &str) -> Vec<Claim> {
+        vec![Claim::Property {
+            channel: self.channel.clone(),
+            feature: self
+                .feature
+                .as_deref()
+                .unwrap_or(default_feature)
+                .to_string(),
+            property: self.property.clone(),
+        }]
     }
 }
 
@@ -98,8 +113,50 @@ pub trait Generator {
     type Properties;
 
     fn new(properties: Self::Properties) -> Self;
+    /// get current claims
+    fn claims(&self) -> &[Claim];
+
     fn update(&mut self, properties: Self::Properties);
 
     fn start(&mut self, ctx: Context);
     fn stop(&mut self);
+}
+
+pub trait GeneratorHandler {
+    fn start(&mut self, ctx: Context);
+    fn stop(&mut self);
+    fn claims(&self) -> &[Claim];
+}
+
+impl<G> GeneratorHandler for G
+where
+    G: Generator,
+{
+    fn start(&mut self, ctx: Context) {
+        Generator::start(self, ctx)
+    }
+
+    fn stop(&mut self) {
+        Generator::stop(self)
+    }
+
+    fn claims(&self) -> &[Claim] {
+        Generator::claims(self)
+    }
+}
+
+pub trait SimulationFactory {
+    fn create(&self) -> Box<dyn GeneratorHandler>;
+}
+
+impl SimulationFactory for Simulation {
+    fn create(&self) -> Box<dyn GeneratorHandler> {
+        match self {
+            Simulation::Sine(props) => Box::new(sine::SineGenerator::new(props.clone())),
+            Simulation::Sawtooth(props) => {
+                Box::new(sawtooth::SawtoothGenerator::new(props.clone()))
+            }
+            Simulation::Wave(props) => Box::new(wave::WaveGenerator::new(props.clone())),
+        }
+    }
 }

@@ -25,6 +25,8 @@ pub enum AppRoute {
     Configuration,
     #[to = "/state"]
     State,
+    #[to = "/claims"]
+    Claims,
     #[to = "/add"]
     Add,
     #[to = "/simulation/{:id}"]
@@ -149,11 +151,14 @@ impl Component for ApplicationView {
                             <NavRouterItem<AppRoute> to={AppRoute::Events}>{"Events"}</NavRouterItem<AppRoute>>
                             <NavRouterItem<AppRoute> to={AppRoute::Publish}>{"Publish"}</NavRouterItem<AppRoute>>
                             <NavRouterItem<AppRoute> to={AppRoute::Commands}>{"Received Commands"}</NavRouterItem<AppRoute>>
-                            <NavRouterItem<AppRoute> to={AppRoute::State}>{"Internal State"}</NavRouterItem<AppRoute>>
                         </NavRouterExpandable<AppRoute>>
                         <NavRouterExpandable<AppRoute> title="Simulations" expanded=true>
                             <NavRouterItem<AppRoute> to={AppRoute::Add}>{ Icon::PlusCircleIcon} <span class="pf-u-px-sm">{ "Add" }</span> </NavRouterItem<AppRoute>>
                             { for generators.into_iter() }
+                        </NavRouterExpandable<AppRoute>>
+                        <NavRouterExpandable<AppRoute> title="Internal" expanded=true>
+                            <NavRouterItem<AppRoute> to={AppRoute::State}>{"State"}</NavRouterItem<AppRoute>>
+                            <NavRouterItem<AppRoute> to={AppRoute::Claims}>{"Claims"}</NavRouterItem<AppRoute>>
                         </NavRouterExpandable<AppRoute>>
                     </NavList>
                 </Nav>
@@ -203,6 +208,7 @@ impl Component for ApplicationView {
                                     AppRoute::Publish => html!{<pages::AppPage<pages::Publish>/>},
                                     AppRoute::Commands => html!{<pages::AppPage<pages::Commands>/>},
                                     AppRoute::State => html!{<pages::AppPage<pages::State>/>},
+                                    AppRoute::Claims => html!{<pages::AppPage<pages::InternalClaims>/>},
                                     AppRoute::Events => html!{<pages::AppPage<pages::Events>/>},
                                     AppRoute::Configuration => html!{<pages::AppPage<pages::Configuration>/>},
                                     AppRoute::Add => html!{<pages::AppPage<pages::Add>/>},

@@ -135,6 +135,7 @@ dependencies = [
  "js-sys",
  "log",
  "monaco",
+ "multimap",
  "num-traits",
  "patternfly-yew",
  "serde",
@@ -590,6 +591,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "multimap"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5ce46fe64a9d73be07dcbe690a38ce1b293be448fd8ce1e6c1b8062c9f72c6a"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "nom"
 version = "5.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -628,7 +638,7 @@ checksum = "0744126afe1a6dd7f394cb50a716dbe086cb06e255e53d8d0185d82828358fb5"
 [[package]]
 name = "patternfly-yew"
 version = "0.2.0"
-source = "git+https://github.com/ctron/patternfly-yew?rev=c45eaae43ba8c79cb1c1840deaa3138b7a05579b#c45eaae43ba8c79cb1c1840deaa3138b7a05579b"
+source = "git+https://github.com/ctron/patternfly-yew?rev=c079c15e7e72747dcfd74c9d06e20a708322dff9#c079c15e7e72747dcfd74c9d06e20a708322dff9"
 dependencies = [
  "chrono",
  "gloo-timers",

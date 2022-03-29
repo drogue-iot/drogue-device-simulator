@@ -6,6 +6,7 @@ extern crate core;
 mod app;
 mod connector;
 mod data;
+mod edit;
 mod pages;
 mod settings;
 mod simulator;

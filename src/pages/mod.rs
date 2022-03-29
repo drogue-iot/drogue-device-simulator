@@ -1,4 +1,5 @@
 mod add;
+mod claims;
 mod commands;
 mod config;
 mod connection;
@@ -9,6 +10,7 @@ mod simulation;
 mod state;
 
 pub use add::*;
+pub use claims::*;
 pub use commands::*;
 pub use config::*;
 pub use connection::*;

@@ -18,6 +18,7 @@ itertools = "0.10"
 js-sys = "0.3.50"
 log = "0.4"
 monaco = { version = "0.3", features = ["yew-components"] }
+multimap = "0.8"
 num-traits = "0.2"
 patternfly-yew = "0.2.0"
 serde = { version = "1", features = ["derive"] }
@@ -56,7 +57,7 @@ web-sys = { version = "0.3", features = [
 ] }
 
 [patch.crates-io]
-patternfly-yew = { git = "https://github.com/ctron/patternfly-yew", rev = "c45eaae43ba8c79cb1c1840deaa3138b7a05579b" }
+patternfly-yew = { git = "https://github.com/ctron/patternfly-yew", rev = "c079c15e7e72747dcfd74c9d06e20a708322dff9" }
 #patternfly-yew = { path = "../patternfly-yew" }
 
 [dev-dependencies]

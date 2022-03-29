@@ -1,18 +1,20 @@
+mod claims;
 pub mod generators;
 mod mqtt;
 mod publish;
 
-use crate::connector::mqtt::QoS;
-use crate::data::{self, SharedDataBridge};
-use crate::settings::{Credentials, Settings, Simulation, Target};
-use crate::simulator::publish::SimulatorStateUpdate;
-use crate::simulator::{
-    generators::{
-        sawtooth::SawtoothGenerator, sine::SineGenerator, tick::TickedGenerator,
-        wave::WaveGenerator, Generator, SimulationDescription, SimulationState,
+pub use claims::*;
+
+use crate::simulator::generators::{GeneratorHandler, SimulationFactory};
+use crate::{
+    connector::mqtt::QoS,
+    data::{self, SharedDataBridge},
+    settings::{Credentials, Settings, Target},
+    simulator::{
+        generators::{SimulationDescription, SimulationState},
+        mqtt::MqttConnector,
+        publish::{ChannelState, PublishEvent, Publisher, SimulatorStateUpdate},
     },
-    mqtt::MqttConnector,
-    publish::{ChannelState, PublishEvent, Publisher},
 };
 use chrono::{DateTime, Utc};
 use std::{
@@ -86,24 +88,6 @@ pub struct Simulator {
     internal_subs: Vec<HandlerId>,
 }
 
-trait GeneratorHandler {
-    fn start(&mut self, ctx: generators::Context);
-    fn stop(&mut self);
-}
-
-impl<G> GeneratorHandler for G
-where
-    G: Generator,
-{
-    fn start(&mut self, ctx: generators::Context) {
-        Generator::start(self, ctx)
-    }
-
-    fn stop(&mut self) {
-        Generator::stop(self)
-    }
-}
-
 #[derive(Debug)]
 pub enum Msg {
     Settings(Settings),
@@ -142,6 +126,7 @@ pub struct SimulatorState {
     pub running: bool,
     pub state: State,
     pub simulations: BTreeMap<String, SimulationDescription>,
+    pub claims: Claims,
 }
 
 impl Default for SimulatorState {
@@ -150,6 +135,7 @@ impl Default for SimulatorState {
             running: false,
             state: State::Disconnected,
             simulations: Default::default(),
+            claims: Default::default(),
         }
     }
 }
@@ -409,10 +395,13 @@ impl Simulator {
 
         // insert
 
-        self.simulations.insert(id.clone(), generator);
         self.state
             .simulations
             .insert(id.clone(), SimulationDescription { label: id.clone() });
+        self.state
+            .claims
+            .insert(id.clone(), generator.claims().to_vec());
+        self.simulations.insert(id.clone(), generator);
         self.send_state();
 
         // return handle
@@ -421,6 +410,9 @@ impl Simulator {
     }
 
     fn remove_generator(&mut self, id: &GeneratorId) {
+        self.state.simulations.remove(id);
+        self.state.claims.remove(id);
+
         if let Some(mut generator) = self.simulations.remove(id) {
             generator.stop()
         }
@@ -538,6 +530,9 @@ impl Simulator {
         } else if self.settings.auto_connect {
             // auto-connect on, but not started yet
             self.start();
+        } else {
+            // only need to send state here, as self.start() already does it
+            self.send_state();
         }
     }
 
@@ -546,7 +541,7 @@ impl Simulator {
         let mut current_sims: HashSet<_> = self.simulations.keys().cloned().collect();
 
         for (id, sim) in &settings.simulations {
-            self.add_generator(id.clone(), Self::create_sim(sim));
+            self.add_generator(id.clone(), sim.create());
             current_sims.remove(id);
         }
 
@@ -555,14 +550,6 @@ impl Simulator {
         }
 
         self.settings = settings;
-    }
-
-    fn create_sim(sim: &Simulation) -> Box<dyn GeneratorHandler> {
-        match sim {
-            Simulation::Sine(props) => Box::new(SineGenerator::new(props.clone())),
-            Simulation::Sawtooth(props) => Box::new(SawtoothGenerator::new(props.clone())),
-            Simulation::Wave(props) => Box::new(WaveGenerator::new(props.clone())),
-        }
     }
 }
 

@@ -1,4 +1,5 @@
 use super::default_period;
+use crate::simulator::Claim;
 use crate::utils::ui::details;
 use crate::{
     simulator::{
@@ -65,6 +66,10 @@ impl TickedGenerator for WaveGenerator {
             period: properties.period,
             target: properties.target.clone(),
         }
+    }
+
+    fn make_claims(properties: &Self::Properties) -> Vec<Claim> {
+        properties.target.claims(DEFAULT_FEATURE)
     }
 
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {
