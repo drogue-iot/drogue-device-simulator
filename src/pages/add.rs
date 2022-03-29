@@ -1,5 +1,6 @@
 use crate::simulator::generators::SimulationFactory;
 use crate::simulator::Claim;
+use crate::utils::float::ApproxF64;
 use crate::{
     app::AppRoute,
     data::{SharedDataDispatcher, SharedDataOps},
@@ -286,13 +287,13 @@ impl Add {
             SimulationTypes::Sawtooth(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::edit_field(FloatRequired, "Maximum", props.max.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Sawtooth(props) =  state {
+                    { Self::edit_field("Maximum", props.max.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Sawtooth(props) =  state {
                         props.max = v.into();
                     })) }
-                    { Self::edit_field(DurationRequired, "Period", props.period, Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sawtooth(props) = state {
+                    { Self::edit_field("Period", humantime::Duration::from(props.period), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sawtooth(props) = state {
                         props.period = v.into();
                     })) }
-                    { Self::edit_field(DurationRequired, "Length", props.length, Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sawtooth(props) = state {
+                    { Self::edit_field("Length", humantime::Duration::from(props.length), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sawtooth(props) = state {
                         props.length = v.into();
                     })) }
                     </FormSection>
@@ -305,13 +306,13 @@ impl Add {
             SimulationTypes::Sine(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::edit_field(FloatRequired, "Amplitude", props.amplitude.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Sine(props) =  state {
+                    { Self::edit_field( "Amplitude", props.amplitude.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Sine(props) =  state {
                         props.amplitude = v.into();
                     })) }
-                    { Self::edit_field(DurationRequired, "Period", props.period, Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sine(props) = state {
+                    { Self::edit_field( "Period", humantime::Duration::from(props.period), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sine(props) = state {
                         props.period = v.into();
                     })) }
-                    { Self::edit_field(DurationRequired, "Length", props.length, Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sine(props) = state {
+                    { Self::edit_field( "Length", humantime::Duration::from(props.length), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sine(props) = state {
                         props.length = v.into();
                     })) }
                     </FormSection>
@@ -324,11 +325,17 @@ impl Add {
             SimulationTypes::Wave(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::edit_field(FloatRequired, "Offset", props.offset.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Wave(props) =  state {
+                    { Self::edit_field( "Offset", props.offset.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Wave(props) =  state {
                         props.offset = v.into();
                     })) }
-                    { Self::edit_field(DurationRequired, "Period", props.period, Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Wave(props) = state {
+                    { Self::edit_field( "Period", humantime::Duration::from(props.period), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Wave(props) = state {
                         props.period = v.into();
+                    })) }
+                    { Self::edit_field( "Amplitudes", props.amplitudes.clone(), Self::setter(ctx, |state, v: Vec<ApproxF64<_, 2>>|if let SimulationTypes::Wave(props) = state {
+                        props.amplitudes = v;
+                    })) }
+                    { Self::edit_field( "Lengths", props.lengths.clone(), Self::setter(ctx, |state, v: Vec<ApproxF64<_, 2>>|if let SimulationTypes::Wave(props) = state {
+                        props.lengths = v;
                     })) }
                     </FormSection>
                     { Self::edit_target(ctx, &props.target, |state| match state {
@@ -349,10 +356,9 @@ impl Add {
             .callback_once(move |v| Msg::Set(Box::new(move |state| f(state, v))))
     }
 
-    fn edit_field<F, T>(_: F, label: &str, value: T, setter: Callback<F::Type>) -> Html
+    fn edit_field<F>(label: &str, value: F, setter: Callback<F>) -> Html
     where
         F: FieldType + 'static,
-        T: Into<F::Type>,
     {
         let setter = Callback::from(move |s: String| match F::parse(&s) {
             Ok(value) => setter.emit(value),
@@ -366,7 +372,7 @@ impl Add {
                 label={label.to_string()}
                 >
                 <TextInput
-                    value={value.into().to_string()}
+                    value={value.to_string()}
                     onchange={setter}
                     />
             </FormGroupValidated<TextInput>>
@@ -390,9 +396,9 @@ impl Add {
 
         let set_feature = {
             let f = f.clone();
-            Self::setter(ctx, move |state, value: Optional<String>| {
+            Self::setter(ctx, move |state, value: Option<String>| {
                 if let Some(target) = f(state) {
-                    target.feature = value.0;
+                    target.feature = value;
                 }
             })
         };
@@ -405,9 +411,9 @@ impl Add {
 
         html!(<>
             <FormSection title="Target">
-                { Self::edit_field(StringRequired, "Channel", target.channel.clone(), set_channel) }
-                { Self::edit_field(StringOptional, "Feature", target.feature.clone(), set_feature) }
-                { Self::edit_field(StringRequired, "Property", target.property.clone(), set_property) }
+                { Self::edit_field("Channel", target.channel.clone(), set_channel) }
+                { Self::edit_field("Feature", target.feature.clone(), set_feature) }
+                { Self::edit_field("Property", target.property.clone(), set_property) }
             </FormSection>
         </>)
     }
