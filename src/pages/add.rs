@@ -5,7 +5,7 @@ use crate::{
     pages::ApplicationPage,
     settings::{Settings, Simulation},
     simulator::{
-        generators::{sawtooth, sine, wave, SimulationFactory, SingleTarget},
+        generators::{sawtooth, sine, wave, SimulationFactory},
         Claim, SimulatorBridge, SimulatorState,
     },
     utils::to_yaml,
@@ -299,150 +299,54 @@ impl Add {
 
     /// Render the properties of the selected type
     fn render_properties(&self, ctx: &Context<Self>) -> Html {
+        let setter = ContextSetter::from((ctx, Msg::Set));
         match &self.content {
             SimulationTypes::Sawtooth(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::setter_field(ctx, "Maximum", props.max.0, | state, v| if let SimulationTypes::Sawtooth(props) =  state {
+                    { setter_field(&setter, "Maximum", props.max.0, | state, v| if let SimulationTypes::Sawtooth(props) =  state {
                         props.max = v.into();
                     }) }
-                    { Self::setter_field(ctx, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Sawtooth(props) = state {
+                    { setter_field(&setter, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Sawtooth(props) = state {
                         props.period = v.into();
                     }) }
-                    { Self::setter_field(ctx, "Length", humantime::Duration::from(props.length), |state, v| if let SimulationTypes::Sawtooth(props) = state {
+                    { setter_field(&setter, "Length", humantime::Duration::from(props.length), |state, v| if let SimulationTypes::Sawtooth(props) = state {
                         props.length = v.into();
                     }) }
                     </FormSection>
-                    { Self::edit_target(ctx, &props.target, |state| match state {
+                    { edit_target(&setter, &props.target, |state| match state {
                         SimulationTypes::Sawtooth(props) => Some(&mut props.target),
                         _ => None,
                     })}
                 </>)
             }
-            SimulationTypes::Sine(props) => {
-                html!(<>
-                    <FormSection title="Parameters">
-                    { Self::setter_field(ctx, "Amplitude", props.amplitude.0, | state, v|if let SimulationTypes::Sine(props) =  state {
-                        props.amplitude = v.into();
-                    }) }
-                    { Self::setter_field(ctx, "Period", humantime::Duration::from(props.period),  |state, v|if let SimulationTypes::Sine(props) = state {
-                        props.period = v.into();
-                    }) }
-                    { Self::setter_field(ctx, "Length", humantime::Duration::from(props.length), |state, v|if let SimulationTypes::Sine(props) = state {
-                        props.length = v.into();
-                    }) }
-                    </FormSection>
-                    { Self::edit_target(ctx, &props.target, |state| match state {
-                        SimulationTypes::Sine(props) => Some(&mut props.target),
-                        _ => None,
-                    })}
-                </>)
-            }
+            SimulationTypes::Sine(props) => render_sine_editor(&setter, props),
             SimulationTypes::Wave(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::setter_field(ctx, "Offset", props.offset.0, | state, v| if let SimulationTypes::Wave(props) = state {
+                    { setter_field(&setter, "Offset", props.offset.0, | state, v| if let SimulationTypes::Wave(props) = state {
                         props.offset = v.into();
                     }) }
-                    { Self::setter_field( ctx,"Offset", props.offset.0, | state, v: f64| if let SimulationTypes::Wave(props) = state {
+                    { setter_field(&setter, "Offset", props.offset.0, | state, v: f64| if let SimulationTypes::Wave(props) = state {
                         props.offset = v.into();
                     }) }
-                    { Self::setter_field(ctx, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Wave(props) = state {
+                    { setter_field(&setter, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Wave(props) = state {
                         props.period = v.into();
                     }) }
-                    { Self::setter_field(ctx, "Amplitudes", props.amplitudes.clone(), |state, v|if let SimulationTypes::Wave(props) = state {
+                    { setter_field(&setter, "Amplitudes", props.amplitudes.clone(), |state, v|if let SimulationTypes::Wave(props) = state {
                         props.amplitudes = v;
                     }) }
-                    { Self::setter_field( ctx,"Lengths", props.lengths.clone(),  |state, v|if let SimulationTypes::Wave(props) = state {
+                    { setter_field(&setter, "Lengths", props.lengths.clone(),  |state, v|if let SimulationTypes::Wave(props) = state {
                         props.lengths = v;
                     }) }
                     </FormSection>
-                    { Self::edit_target(ctx, &props.target, |state| match state {
+                    { edit_target(&setter, &props.target, |state| match state {
                         SimulationTypes::Wave(props) => Some(&mut props.target),
                         _ => None,
                     })}
                 </>)
             }
         }
-    }
-
-    fn setter_field<T, F>(ctx: &Context<Self>, label: &str, value: T, setter: F) -> Html
-    where
-        T: FieldType + 'static,
-        F: FnOnce(&mut SimulationTypes, T) + 'static,
-    {
-        Self::edit_field(label, value, Self::setter(ctx, setter))
-    }
-
-    fn setter<T, F>(ctx: &Context<Self>, f: F) -> Callback<T>
-    where
-        F: FnOnce(&mut SimulationTypes, T) + 'static,
-        T: 'static,
-    {
-        ctx.link()
-            .callback_once(move |v| Msg::Set(Box::new(move |state| f(state, v))))
-    }
-
-    fn edit_field<F>(label: &str, value: F, setter: Callback<F>) -> Html
-    where
-        F: FieldType + 'static,
-    {
-        let setter = Callback::from(move |s: String| match F::parse(&s) {
-            Ok(value) => setter.emit(value),
-            Err(_) => {}
-        });
-
-        html!(
-            <FormGroupValidated<TextInput>
-                required={F::required()}
-                validator={F::base_validator().unwrap_or_default()}
-                label={label.to_string()}
-                >
-                <TextInput
-                    value={value.to_string()}
-                    onchange={setter}
-                    />
-            </FormGroupValidated<TextInput>>
-        )
-    }
-
-    fn edit_target<F>(ctx: &Context<Self>, target: &SingleTarget, f: F) -> Html
-    where
-        F: Fn(&mut SimulationTypes) -> Option<&mut SingleTarget> + 'static,
-    {
-        let f = Rc::new(f);
-
-        let set_channel = {
-            let f = f.clone();
-            Self::setter(ctx, move |state, value: String| {
-                if let Some(target) = f(state) {
-                    target.channel = value;
-                }
-            })
-        };
-
-        let set_feature = {
-            let f = f.clone();
-            Self::setter(ctx, move |state, value: Option<String>| {
-                if let Some(target) = f(state) {
-                    target.feature = value;
-                }
-            })
-        };
-
-        let set_property = Self::setter(ctx, move |state, value| {
-            if let Some(target) = f(state) {
-                target.property = value;
-            }
-        });
-
-        html!(<>
-            <FormSection title="Target">
-                { Self::edit_field("Channel", target.channel.clone(), set_channel) }
-                { Self::edit_field("Feature", target.feature.clone(), set_feature) }
-                { Self::edit_field("Property", target.property.clone(), set_property) }
-            </FormSection>
-        </>)
     }
 
     fn validate(&mut self) {
@@ -459,4 +363,28 @@ impl Add {
             None
         };
     }
+}
+
+fn render_sine_editor<S>(setter: &S, props: &sine::Properties) -> Html
+where
+    S: Setter<SimulationTypes>,
+{
+    html!(<>
+        <FormSection title="Parameters">
+            { setter_field(setter, "Amplitude", props.amplitude.0, | state, v| if let SimulationTypes::Sine(props) =  state {
+                props.amplitude = v.into();
+            }) }
+            { setter_field(setter,"Period", humantime::Duration::from(props.period),  |state, v| if let SimulationTypes::Sine(props) = state {
+                props.period = v.into();
+            }) }
+            { setter_field(setter, "Length", humantime::Duration::from(props.length), |state, v| if let SimulationTypes::Sine(props) = state {
+                props.length = v.into();
+            }) }
+        </FormSection>
+
+        { edit_target(setter, &props.target, |state| match state {
+            SimulationTypes::Sine(props) => Some(&mut props.target),
+            _ => None,
+        })}
+    </>)
 }
