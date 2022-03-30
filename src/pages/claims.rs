@@ -1,3 +1,4 @@
+use crate::pages::SimulationDetails;
 use crate::{
     app::AppRoute,
     pages::ApplicationPage,
@@ -35,7 +36,10 @@ impl TableRenderer for Entry {
                     .map(|s|html!(
                         <li>
                             <RouterAnchor<AppRoute>
-                                route={AppRoute::Simulation(s.clone())}
+                                route={AppRoute::Simulation {
+                                    id: s.clone(),
+                                    details: SimulationDetails::Overview}
+                                }
                                 >{ s }
                             </RouterAnchor<AppRoute>>
                         </li>

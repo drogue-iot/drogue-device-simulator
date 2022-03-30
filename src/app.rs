@@ -8,6 +8,7 @@ use yew::virtual_dom::VChild;
 use yew_router::prelude::*;
 
 use crate::pages;
+use crate::pages::SimulationDetails;
 use crate::settings::Settings;
 use crate::simulator::{SimulatorBridge, SimulatorState};
 
@@ -29,8 +30,11 @@ pub enum AppRoute {
     Claims,
     #[to = "/add"]
     Add,
-    #[to = "/simulation/{:id}"]
-    Simulation(String),
+    #[to = "/simulation/{id}/{*:details}"]
+    Simulation {
+        id: String,
+        details: SimulationDetails,
+    },
     #[to = "/!"]
     Overview,
 }
@@ -131,7 +135,7 @@ impl Component for ApplicationView {
         for (id, sim) in &self.simulator_state.simulations {
             generators.push(html_nested!(
                 <NavRouterItem<AppRoute>
-                    to={AppRoute::Simulation(id.clone())}
+                    to={AppRoute::Simulation{id : id.clone(), details:SimulationDetails::Overview}}
                 >
                 { &sim.label }
                 </NavRouterItem<AppRoute>>
@@ -212,7 +216,7 @@ impl Component for ApplicationView {
                                     AppRoute::Events => html!{<pages::AppPage<pages::Events>/>},
                                     AppRoute::Configuration => html!{<pages::AppPage<pages::Configuration>/>},
                                     AppRoute::Add => html!{<pages::AppPage<pages::Add>/>},
-                                    AppRoute::Simulation(id) => html!{<pages::Simulation id={id}/>}
+                                    AppRoute::Simulation{id, details} => html!{<pages::Simulation id={id} details={details}/>}
                                 }
                             })}
                         />

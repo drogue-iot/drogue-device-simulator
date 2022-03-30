@@ -1,7 +1,9 @@
+mod editors;
 mod fields;
 mod setter;
 mod target;
 
+pub use editors::*;
 pub use fields::*;
 pub use setter::*;
 pub use target::*;
