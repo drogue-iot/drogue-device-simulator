@@ -1,6 +1,3 @@
-use crate::simulator::generators::SimulationFactory;
-use crate::simulator::Claim;
-use crate::utils::float::ApproxF64;
 use crate::{
     app::AppRoute,
     data::{SharedDataDispatcher, SharedDataOps},
@@ -8,8 +5,8 @@ use crate::{
     pages::ApplicationPage,
     settings::{Settings, Simulation},
     simulator::{
-        generators::{sawtooth, sine, wave, SingleTarget},
-        SimulatorBridge, SimulatorState,
+        generators::{sawtooth, sine, wave, SimulationFactory, SingleTarget},
+        Claim, SimulatorBridge, SimulatorState,
     },
     utils::to_yaml,
 };
@@ -102,6 +99,7 @@ pub enum Msg {
     Add,
 
     Set(Box<dyn FnOnce(&mut SimulationTypes)>),
+    ValidationState(InputState),
 }
 
 pub struct Add {
@@ -113,6 +111,7 @@ pub struct Add {
     settings_agent: SharedDataDispatcher<Settings>,
 
     validation_result: Option<FormAlert>,
+    validation_state: InputState,
 }
 
 impl ApplicationPage for Add {
@@ -136,6 +135,7 @@ impl Component for Add {
             _simulator: simulator,
             settings_agent,
             validation_result: Default::default(),
+            validation_state: InputState::Default,
         }
     }
 
@@ -156,6 +156,9 @@ impl Component for Add {
             }
             Msg::Add => {
                 self.add();
+            }
+            Msg::ValidationState(state) => {
+                self.validation_state = state;
             }
         }
         true
@@ -184,6 +187,7 @@ impl Component for Add {
                         <Form
                             alert={self.validation_result.clone()}
                             horizontal={[FormHorizontal.xl()]}
+                            onvalidated={ctx.link().callback(Msg::ValidationState)}
                         >
 
                             <FormGroupValidated<TextInput>
@@ -208,6 +212,7 @@ impl Component for Add {
                                     label="Add"
                                     variant={Variant::Primary}
                                     onclick={ctx.link().callback(|_|Msg::Add)}
+                                    disabled={self.is_disabled()}
                                     />
                             </ActionGroup>
                         </Form>
@@ -236,6 +241,17 @@ impl Add {
 
         let route = Route::<()>::from(AppRoute::Simulation(self.id.clone()));
         RouteAgentDispatcher::new().send(RouteRequest::ChangeRoute(route));
+    }
+
+    fn is_disabled(&self) -> bool {
+        matches!(self.validation_state, InputState::Error)
+            || matches!(
+                self.validation_result,
+                Some(FormAlert {
+                    r#type: Type::Danger,
+                    ..
+                })
+            )
     }
 
     /// Render the type select dropdown
@@ -287,15 +303,15 @@ impl Add {
             SimulationTypes::Sawtooth(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::edit_field("Maximum", props.max.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Sawtooth(props) =  state {
+                    { Self::setter_field(ctx, "Maximum", props.max.0, | state, v| if let SimulationTypes::Sawtooth(props) =  state {
                         props.max = v.into();
-                    })) }
-                    { Self::edit_field("Period", humantime::Duration::from(props.period), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sawtooth(props) = state {
+                    }) }
+                    { Self::setter_field(ctx, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Sawtooth(props) = state {
                         props.period = v.into();
-                    })) }
-                    { Self::edit_field("Length", humantime::Duration::from(props.length), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sawtooth(props) = state {
+                    }) }
+                    { Self::setter_field(ctx, "Length", humantime::Duration::from(props.length), |state, v| if let SimulationTypes::Sawtooth(props) = state {
                         props.length = v.into();
-                    })) }
+                    }) }
                     </FormSection>
                     { Self::edit_target(ctx, &props.target, |state| match state {
                         SimulationTypes::Sawtooth(props) => Some(&mut props.target),
@@ -306,15 +322,15 @@ impl Add {
             SimulationTypes::Sine(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::edit_field( "Amplitude", props.amplitude.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Sine(props) =  state {
+                    { Self::setter_field(ctx, "Amplitude", props.amplitude.0, | state, v|if let SimulationTypes::Sine(props) =  state {
                         props.amplitude = v.into();
-                    })) }
-                    { Self::edit_field( "Period", humantime::Duration::from(props.period), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sine(props) = state {
+                    }) }
+                    { Self::setter_field(ctx, "Period", humantime::Duration::from(props.period),  |state, v|if let SimulationTypes::Sine(props) = state {
                         props.period = v.into();
-                    })) }
-                    { Self::edit_field( "Length", humantime::Duration::from(props.length), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Sine(props) = state {
+                    }) }
+                    { Self::setter_field(ctx, "Length", humantime::Duration::from(props.length), |state, v|if let SimulationTypes::Sine(props) = state {
                         props.length = v.into();
-                    })) }
+                    }) }
                     </FormSection>
                     { Self::edit_target(ctx, &props.target, |state| match state {
                         SimulationTypes::Sine(props) => Some(&mut props.target),
@@ -325,18 +341,21 @@ impl Add {
             SimulationTypes::Wave(props) => {
                 html!(<>
                     <FormSection title="Parameters">
-                    { Self::edit_field( "Offset", props.offset.0, Self::setter(ctx, | state, v: f64|if let SimulationTypes::Wave(props) =  state {
+                    { Self::setter_field(ctx, "Offset", props.offset.0, | state, v| if let SimulationTypes::Wave(props) = state {
                         props.offset = v.into();
-                    })) }
-                    { Self::edit_field( "Period", humantime::Duration::from(props.period), Self::setter(ctx, |state, v: humantime::Duration|if let SimulationTypes::Wave(props) = state {
+                    }) }
+                    { Self::setter_field( ctx,"Offset", props.offset.0, | state, v: f64| if let SimulationTypes::Wave(props) = state {
+                        props.offset = v.into();
+                    }) }
+                    { Self::setter_field(ctx, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Wave(props) = state {
                         props.period = v.into();
-                    })) }
-                    { Self::edit_field( "Amplitudes", props.amplitudes.clone(), Self::setter(ctx, |state, v: Vec<ApproxF64<_, 2>>|if let SimulationTypes::Wave(props) = state {
+                    }) }
+                    { Self::setter_field(ctx, "Amplitudes", props.amplitudes.clone(), |state, v|if let SimulationTypes::Wave(props) = state {
                         props.amplitudes = v;
-                    })) }
-                    { Self::edit_field( "Lengths", props.lengths.clone(), Self::setter(ctx, |state, v: Vec<ApproxF64<_, 2>>|if let SimulationTypes::Wave(props) = state {
+                    }) }
+                    { Self::setter_field( ctx,"Lengths", props.lengths.clone(),  |state, v|if let SimulationTypes::Wave(props) = state {
                         props.lengths = v;
-                    })) }
+                    }) }
                     </FormSection>
                     { Self::edit_target(ctx, &props.target, |state| match state {
                         SimulationTypes::Wave(props) => Some(&mut props.target),
@@ -347,9 +366,17 @@ impl Add {
         }
     }
 
+    fn setter_field<T, F>(ctx: &Context<Self>, label: &str, value: T, setter: F) -> Html
+    where
+        T: FieldType + 'static,
+        F: FnOnce(&mut SimulationTypes, T) + 'static,
+    {
+        Self::edit_field(label, value, Self::setter(ctx, setter))
+    }
+
     fn setter<T, F>(ctx: &Context<Self>, f: F) -> Callback<T>
     where
-        F: Fn(&mut SimulationTypes, T) + 'static,
+        F: FnOnce(&mut SimulationTypes, T) + 'static,
         T: 'static,
     {
         ctx.link()
