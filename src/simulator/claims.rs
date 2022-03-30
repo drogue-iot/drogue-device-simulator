@@ -40,8 +40,13 @@ impl Claims {
     }
 
     /// check if the claim is already claimed
-    pub fn is_claimed(&self, check_claim: &Claim) -> bool {
-        for (_, claims) in &self.claims {
+    pub fn is_claimed(&self, check_claim: &Claim, exclude: Option<&str>) -> bool {
+        for (id, claims) in &self.claims {
+            if let Some(exclude) = exclude {
+                if exclude == id {
+                    continue;
+                }
+            }
             if claims.contains(check_claim) {
                 return true;
             }
@@ -49,9 +54,9 @@ impl Claims {
         false
     }
 
-    pub fn is_claimed_any(&self, check_claims: &[Claim]) -> bool {
+    pub fn is_claimed_any(&self, check_claims: &[Claim], exclude: Option<&str>) -> bool {
         for check_claim in check_claims {
-            if self.is_claimed(check_claim) {
+            if self.is_claimed(check_claim, exclude) {
                 return true;
             }
         }

@@ -330,7 +330,7 @@ impl Add {
 
     fn validate(&mut self) {
         let claims = self.content.to_claims();
-        self.validation_result = if self.simulator_state.claims.is_claimed_any(&claims) {
+        self.validation_result = if self.simulator_state.claims.is_claimed_any(&claims, None) {
             Some(FormAlert {
                 r#type: Type::Warning,
                 title: "Conflicting claims".into(),

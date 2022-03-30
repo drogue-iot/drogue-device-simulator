@@ -3,7 +3,8 @@ use crate::data::{SharedDataBridge, SharedDataOps};
 use crate::edit::*;
 use crate::settings;
 use crate::settings::Settings;
-use crate::simulator::{generators::SimulationState, Response, SimulatorBridge};
+use crate::simulator::generators::SimulationFactory;
+use crate::simulator::{generators::SimulationState, Response, SimulatorBridge, SimulatorState};
 use patternfly_yew::*;
 use yew::prelude::*;
 use yew_router::agent::RouteRequest;
@@ -28,6 +29,7 @@ pub struct Simulation {
 
     simulation_id: String,
     state: SimulationState,
+    simulator_state: SimulatorState,
 
     settings_agent: SharedDataBridge<Settings>,
     settings: Settings,
@@ -38,6 +40,7 @@ pub struct Simulation {
 
 pub enum Msg {
     State(SimulationState),
+    SimulatorState(SimulatorState),
     Settings(Settings),
     Set(Box<dyn FnOnce(&mut settings::Simulation)>),
     ValidationState(InputState),
@@ -52,6 +55,7 @@ impl Component for Simulation {
     fn create(ctx: &Context<Self>) -> Self {
         let mut simulator =
             SimulatorBridge::new(ctx.link().batch_callback(|response| match response {
+                Response::State(state) => vec![Msg::SimulatorState(state)],
                 Response::SimulationState(state) => vec![Msg::State(state)],
                 _ => vec![],
             }));
@@ -63,6 +67,7 @@ impl Component for Simulation {
 
         Self {
             state: SimulationState::default(),
+            simulator_state: Default::default(),
             simulation_id: ctx.props().id.clone(),
             simulator,
             settings_agent,
@@ -77,8 +82,13 @@ impl Component for Simulation {
             Msg::State(state) => {
                 self.state = state;
             }
+            Msg::SimulatorState(state) => {
+                self.simulator_state = state;
+                self.validate();
+            }
             Msg::Settings(settings) => {
                 self.settings = settings;
+                self.validate();
             }
             Msg::Set(setter) => {
                 let sim = self.settings.simulations.get_mut(&self.simulation_id);
@@ -229,10 +239,18 @@ impl Simulation {
     }
 
     fn validate(&mut self) {
-        // FIXME: implement
-        /*
-        let claims = self.content.to_claims();
-        self.validation_result = if self.simulator_state.claims.is_claimed_any(&claims) {
+        let claims = self
+            .settings
+            .simulations
+            .get(&self.simulation_id)
+            .map(|sim| sim.create().claims().to_vec())
+            .unwrap_or_default();
+
+        self.validation_result = if self
+            .simulator_state
+            .claims
+            .is_claimed_any(&claims, Some(&self.simulation_id))
+        {
             Some(FormAlert {
                 r#type: Type::Warning,
                 title: "Conflicting claims".into(),
@@ -243,7 +261,6 @@ impl Simulation {
         } else {
             None
         };
-         */
     }
 
     fn is_disabled(&self) -> bool {
