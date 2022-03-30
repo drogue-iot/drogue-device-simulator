@@ -301,9 +301,27 @@ impl Add {
     fn render_properties(&self, ctx: &Context<Self>) -> Html {
         let setter = ContextSetter::from((ctx, Msg::Set));
         match &self.content {
-            SimulationTypes::Sawtooth(props) => render_sawtooth_editor(&setter, props),
-            SimulationTypes::Sine(props) => render_sine_editor(&setter, props),
-            SimulationTypes::Wave(props) => render_wave_editor(&setter, props),
+            SimulationTypes::Sawtooth(props) => render_sawtooth_editor(
+                &setter.map_or(|state| match state {
+                    SimulationTypes::Sawtooth(props) => Some(props.as_mut()),
+                    _ => None,
+                }),
+                props,
+            ),
+            SimulationTypes::Sine(props) => render_sine_editor(
+                &setter.map_or(|state| match state {
+                    SimulationTypes::Sine(props) => Some(props.as_mut()),
+                    _ => None,
+                }),
+                props,
+            ),
+            SimulationTypes::Wave(props) => render_wave_editor(
+                &setter.map_or(|state| match state {
+                    SimulationTypes::Wave(props) => Some(props.as_mut()),
+                    _ => None,
+                }),
+                props,
+            ),
         }
     }
 
@@ -325,76 +343,44 @@ impl Add {
 
 fn render_sawtooth_editor<S>(setter: &S, props: &sawtooth::Properties) -> Html
 where
-    S: Setter<SimulationTypes>,
+    S: Setter<sawtooth::Properties>,
 {
     html!(<>
         <FormSection title="Parameters">
-        { setter_field(setter, "Maximum", props.max.0, | state, v| if let SimulationTypes::Sawtooth(props) =  state {
-            props.max = v.into();
-        }) }
-        { setter_field(setter, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Sawtooth(props) = state {
-            props.period = v.into();
-        }) }
-        { setter_field(setter, "Length", humantime::Duration::from(props.length), |state, v| if let SimulationTypes::Sawtooth(props) = state {
-            props.length = v.into();
-        }) }
+            { setter_field(setter, "Maximum", props.max.0, | state, v| state.max = v.into() )}
+            { setter_field(setter, "Period", humantime::Duration::from(props.period), |state, v| state.period = v.into() )}
+            { setter_field(setter, "Length", humantime::Duration::from(props.length), |state, v| state.length = v.into() )}
         </FormSection>
-        { edit_target(setter, &props.target, |state| match state {
-            SimulationTypes::Sawtooth(props) => Some(&mut props.target),
-            _ => None,
-        })}
+        { edit_target(&setter.map(|props|&mut props.target), &props.target) }
     </>)
 }
 
 fn render_sine_editor<S>(setter: &S, props: &sine::Properties) -> Html
 where
-    S: Setter<SimulationTypes>,
+    S: Setter<sine::Properties>,
 {
     html!(<>
         <FormSection title="Parameters">
-            { setter_field(setter, "Amplitude", props.amplitude.0, | state, v| if let SimulationTypes::Sine(props) =  state {
-                props.amplitude = v.into();
-            }) }
-            { setter_field(setter,"Period", humantime::Duration::from(props.period),  |state, v| if let SimulationTypes::Sine(props) = state {
-                props.period = v.into();
-            }) }
-            { setter_field(setter, "Length", humantime::Duration::from(props.length), |state, v| if let SimulationTypes::Sine(props) = state {
-                props.length = v.into();
-            }) }
+            { setter_field(setter, "Amplitude", props.amplitude.0, | state, v| state.amplitude = v.into() )}
+            { setter_field(setter,"Period", humantime::Duration::from(props.period),  |state, v| state.period = v.into() ) }
+            { setter_field(setter, "Length", humantime::Duration::from(props.length), |state, v| state.length = v.into() ) }
         </FormSection>
 
-        { edit_target(setter, &props.target, |state| match state {
-            SimulationTypes::Sine(props) => Some(&mut props.target),
-            _ => None,
-        })}
+        { edit_target(&setter.map(|props|&mut props.target), &props.target) }
     </>)
 }
 
 fn render_wave_editor<S>(setter: &S, props: &wave::Properties) -> Html
 where
-    S: Setter<SimulationTypes>,
+    S: Setter<wave::Properties>,
 {
     html!(<>
         <FormSection title="Parameters">
-        { setter_field(setter, "Offset", props.offset.0, | state, v| if let SimulationTypes::Wave(props) = state {
-            props.offset = v.into();
-        }) }
-        { setter_field(setter, "Offset", props.offset.0, | state, v: f64| if let SimulationTypes::Wave(props) = state {
-            props.offset = v.into();
-        }) }
-        { setter_field(setter, "Period", humantime::Duration::from(props.period), |state, v| if let SimulationTypes::Wave(props) = state {
-            props.period = v.into();
-        }) }
-        { setter_field(setter, "Amplitudes", props.amplitudes.clone(), |state, v|if let SimulationTypes::Wave(props) = state {
-            props.amplitudes = v;
-        }) }
-        { setter_field(setter, "Lengths", props.lengths.clone(),  |state, v|if let SimulationTypes::Wave(props) = state {
-            props.lengths = v;
-        }) }
+            { setter_field(setter, "Offset", props.offset.0, | state, v| state.offset = v.into() ) }
+            { setter_field(setter, "Period", humantime::Duration::from(props.period), |state, v| state.period = v.into()) }
+            { setter_field(setter, "Amplitudes", props.amplitudes.clone(), |state, v| state.amplitudes = v) }
+            { setter_field(setter, "Lengths", props.lengths.clone(),  |state, v| state.lengths = v) }
         </FormSection>
-        { edit_target(setter, &props.target, |state| match state {
-            SimulationTypes::Wave(props) => Some(&mut props.target),
-            _ => None,
-        })}
+        { edit_target(&setter.map(|props|&mut props.target), &props.target) }
     </>)
 }
