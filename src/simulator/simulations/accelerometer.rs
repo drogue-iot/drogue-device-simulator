@@ -22,6 +22,7 @@ use yew::prelude::*;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Properties {
     #[serde(default = "default_period")]
+    #[serde(with = "humantime_serde")]
     pub delay: Duration,
     #[serde(default)]
     pub target: FeatureTarget,
