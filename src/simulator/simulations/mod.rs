@@ -156,11 +156,11 @@ pub trait SimulationFactory {
 impl SimulationFactory for Simulation {
     fn create(&self) -> Box<dyn SimulationHandler> {
         match self {
-            Simulation::Sine(props) => Box::new(sine::SineGenerator::new(props.clone())),
+            Simulation::Sine(props) => Box::new(sine::SineGenerator::new(props.as_ref().clone())),
             Simulation::Sawtooth(props) => {
-                Box::new(sawtooth::SawtoothGenerator::new(props.clone()))
+                Box::new(sawtooth::SawtoothGenerator::new(props.as_ref().clone()))
             }
-            Simulation::Wave(props) => Box::new(wave::WaveGenerator::new(props.clone())),
+            Simulation::Wave(props) => Box::new(wave::WaveGenerator::new(props.as_ref().clone())),
         }
     }
 }

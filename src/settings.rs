@@ -1,9 +1,17 @@
-use crate::simulator::simulations::{self, sine, SingleTarget};
+use crate::simulator::simulations::{sawtooth, wave};
+use crate::simulator::{
+    simulations::{self, sine, SimulationFactory, SingleTarget},
+    Claim,
+};
 use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::fmt::{Display, Formatter};
-use std::time::Duration;
+use serde_json::Value;
+use std::{
+    collections::BTreeMap,
+    fmt::{Display, Formatter},
+    time::Duration,
+};
+use strum::{EnumDiscriminants, EnumIter, EnumMessage};
 
 pub const DEFAULT_CONFIG_KEY: &str = "drogue.io/device-simulator/defaultConfiguration";
 
@@ -19,12 +27,67 @@ pub struct Settings {
     pub simulations: BTreeMap<String, Simulation>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(rename_all = "camelCase")]
+#[strum_discriminants(derive(strum::Display, EnumMessage, EnumIter))]
 pub enum Simulation {
-    Sine(simulations::sine::Properties),
-    Sawtooth(simulations::sawtooth::Properties),
-    Wave(simulations::wave::Properties),
+    #[strum_discriminants(strum(message = "Simple sine wave generator",))]
+    Sine(Box<simulations::sine::Properties>),
+    #[strum_discriminants(strum(message = "Sawtooth generator",))]
+    Sawtooth(Box<simulations::sawtooth::Properties>),
+    #[strum_discriminants(strum(message = "Wave generator",))]
+    Wave(Box<simulations::wave::Properties>),
+}
+
+impl Simulation {
+    pub fn to_json(&self) -> Value {
+        match self {
+            Self::Wave(props) => serde_json::to_value(props.as_ref()),
+            Self::Sawtooth(props) => serde_json::to_value(props.as_ref()),
+            Self::Sine(props) => serde_json::to_value(props.as_ref()),
+        }
+        .unwrap_or_default()
+    }
+
+    pub fn to_claims(&self) -> Vec<Claim> {
+        self.create().claims().to_vec()
+    }
+}
+
+impl Default for Simulation {
+    fn default() -> Self {
+        SimulationDiscriminants::Sine.make_default()
+    }
+}
+
+const fn default_period() -> Duration {
+    Duration::from_secs(1)
+}
+
+impl SimulationDiscriminants {
+    pub fn make_default(&self) -> Simulation {
+        match self {
+            Self::Sine => Simulation::Sine(Box::new(sine::Properties {
+                amplitude: 1.0f64.into(),
+                length: Duration::from_secs(60),
+                period: default_period(),
+                target: Default::default(),
+            })),
+            Self::Sawtooth => Simulation::Sawtooth(Box::new(sawtooth::Properties {
+                max: 1.0f64.into(),
+                length: Duration::from_secs(60),
+                period: default_period(),
+                target: Default::default(),
+            })),
+            Self::Wave => Simulation::Wave(Box::new(wave::Properties {
+                lengths: vec![],
+                amplitudes: vec![],
+                offset: 0f64.into(),
+                period: default_period(),
+                target: Default::default(),
+            })),
+        }
+    }
 }
 
 impl Default for Settings {
@@ -39,7 +102,7 @@ impl Default for Settings {
             device: "my-device".into(),
             simulations: {
                 let mut s = BTreeMap::new();
-                s.insert("sine1".to_string(), Simulation::Sine(sine::Properties{
+                s.insert("sine1".to_string(), Simulation::Sine(Box::new(sine::Properties{
                     amplitude: 100f64.into(),
                     length: Duration::from_secs(60),
                     period: Duration::from_secs(1),
@@ -48,7 +111,7 @@ impl Default for Settings {
                         feature: None,
                         property: "value".to_string()
                     }
-                }));
+                })));
                 s
             }
         }

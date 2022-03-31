@@ -3,18 +3,15 @@ use crate::{
     data::{SharedDataDispatcher, SharedDataOps},
     edit::*,
     pages::{ApplicationPage, SimulationDetails},
-    settings::{Settings, Simulation},
-    simulator::{
-        simulations::{sawtooth, sine, wave, SimulationFactory},
-        Claim, SimulatorBridge, SimulatorState,
-    },
+    settings::{Settings, Simulation, SimulationDiscriminants},
+    simulator::{SimulatorBridge, SimulatorState},
     utils::to_yaml,
 };
 use itertools::Itertools;
 use patternfly_yew::*;
-use serde_json::{json, Value};
-use std::{collections::HashSet, rc::Rc, time::Duration};
-use strum::{EnumDiscriminants, EnumIter, EnumMessage, IntoEnumIterator};
+use serde_json::json;
+use std::{collections::HashSet, rc::Rc};
+use strum::{EnumMessage, IntoEnumIterator};
 use uuid::Uuid;
 use yew::prelude::*;
 use yew_router::{
@@ -22,89 +19,19 @@ use yew_router::{
     prelude::Route,
 };
 
-#[derive(Clone, Debug, EnumDiscriminants)]
-#[strum_discriminants(derive(strum::Display, EnumMessage, EnumIter))]
-pub enum SimulationTypes {
-    #[strum_discriminants(strum(message = "Wave generator",))]
-    Wave(Box<wave::Properties>),
-    #[strum_discriminants(strum(message = "Sawtooth generator",))]
-    Sawtooth(Box<sawtooth::Properties>),
-    #[strum_discriminants(strum(message = "Simple sine wave generator",))]
-    Sine(Box<sine::Properties>),
-}
-
-impl SimulationTypes {
-    pub fn to_json(&self) -> Value {
-        match self {
-            Self::Wave(props) => serde_json::to_value(props.as_ref()),
-            Self::Sawtooth(props) => serde_json::to_value(props.as_ref()),
-            Self::Sine(props) => serde_json::to_value(props.as_ref()),
-        }
-        .unwrap_or_default()
-    }
-
-    pub fn to_simulation(&self) -> Simulation {
-        match self {
-            Self::Sine(props) => Simulation::Sine(props.as_ref().clone()),
-            Self::Sawtooth(props) => Simulation::Sawtooth(props.as_ref().clone()),
-            Self::Wave(props) => Simulation::Wave(props.as_ref().clone()),
-        }
-    }
-
-    pub fn to_claims(&self) -> Vec<Claim> {
-        self.to_simulation().create().claims().to_vec()
-    }
-}
-
-const fn default_period() -> Duration {
-    Duration::from_secs(1)
-}
-
-impl SimulationTypesDiscriminants {
-    pub fn make_default(&self) -> SimulationTypes {
-        match self {
-            Self::Sine => SimulationTypes::Sine(Box::new(sine::Properties {
-                amplitude: 1.0f64.into(),
-                length: Duration::from_secs(60),
-                period: default_period(),
-                target: Default::default(),
-            })),
-            Self::Sawtooth => SimulationTypes::Sawtooth(Box::new(sawtooth::Properties {
-                max: 1.0f64.into(),
-                length: Duration::from_secs(60),
-                period: default_period(),
-                target: Default::default(),
-            })),
-            Self::Wave => SimulationTypes::Wave(Box::new(wave::Properties {
-                lengths: vec![],
-                amplitudes: vec![],
-                offset: 0f64.into(),
-                period: default_period(),
-                target: Default::default(),
-            })),
-        }
-    }
-}
-
-impl Default for SimulationTypes {
-    fn default() -> Self {
-        SimulationTypesDiscriminants::Sine.make_default()
-    }
-}
-
 pub enum Msg {
     SimulatorState(SimulatorState),
-    Selected(SimulationTypesDiscriminants),
+    Selected(SimulationDiscriminants),
     SetId(String),
     Add,
 
-    Set(Box<dyn FnOnce(&mut SimulationTypes)>),
+    Set(Box<dyn FnOnce(&mut Simulation)>),
     ValidationState(InputState),
 }
 
 pub struct Add {
     id: String,
-    content: SimulationTypes,
+    content: Simulation,
 
     simulator_state: SimulatorState,
     _simulator: SimulatorBridge,
@@ -233,7 +160,7 @@ impl Component for Add {
 impl Add {
     fn add(&mut self) {
         let id = self.id.clone();
-        let cfg = self.content.to_simulation();
+        let cfg = self.content.clone();
 
         self.settings_agent.update(|settings| {
             settings.simulations.insert(id, cfg);
@@ -261,7 +188,7 @@ impl Add {
     fn render_type(&self, ctx: &Context<Self>) -> Html {
         let variant = SelectVariant::Single(ctx.link().callback(|sel| Msg::Selected(sel)));
 
-        let current: SimulationTypesDiscriminants = self.content.clone().into();
+        let current: SimulationDiscriminants = self.content.clone().into();
 
         html!(
             <FormGroup
@@ -269,17 +196,17 @@ impl Add {
                 required=true
                 >
 
-                <FormSelect<SimulationTypesDiscriminants>
+                <FormSelect<SimulationDiscriminants>
                     variant={variant}
                 >
-                    { for SimulationTypesDiscriminants::iter()
+                    { for SimulationDiscriminants::iter()
                         .sorted_by(|a,b|Ord::cmp(&a.to_string(), &b.to_string()))
                         .map(|t| {
 
                         let selected = current == t;
 
                         html_nested!(
-                            <FormSelectOption<SimulationTypesDiscriminants>
+                            <FormSelectOption<SimulationDiscriminants>
                                 value={t}
                                 selected={selected}
                                 description={t.get_message()}
@@ -287,7 +214,7 @@ impl Add {
                             />
                         )}
                     )}
-                </FormSelect<SimulationTypesDiscriminants>>
+                </FormSelect<SimulationDiscriminants>>
 
             </FormGroup>
         )
@@ -304,23 +231,23 @@ impl Add {
     fn render_properties(&self, ctx: &Context<Self>) -> Html {
         let setter = ContextSetter::from((ctx, Msg::Set));
         match &self.content {
-            SimulationTypes::Sawtooth(props) => render_sawtooth_editor(
+            Simulation::Sawtooth(props) => render_sawtooth_editor(
                 &setter.map_or(|state| match state {
-                    SimulationTypes::Sawtooth(props) => Some(props.as_mut()),
+                    Simulation::Sawtooth(props) => Some(props.as_mut()),
                     _ => None,
                 }),
                 props,
             ),
-            SimulationTypes::Sine(props) => render_sine_editor(
+            Simulation::Sine(props) => render_sine_editor(
                 &setter.map_or(|state| match state {
-                    SimulationTypes::Sine(props) => Some(props.as_mut()),
+                    Simulation::Sine(props) => Some(props.as_mut()),
                     _ => None,
                 }),
                 props,
             ),
-            SimulationTypes::Wave(props) => render_wave_editor(
+            Simulation::Wave(props) => render_wave_editor(
                 &setter.map_or(|state| match state {
-                    SimulationTypes::Wave(props) => Some(props.as_mut()),
+                    Simulation::Wave(props) => Some(props.as_mut()),
                     _ => None,
                 }),
                 props,

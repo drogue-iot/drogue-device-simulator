@@ -198,21 +198,21 @@ impl Simulation {
                     {match sim {
                         settings::Simulation::Sawtooth(props) => render_sawtooth_editor(
                             &setter.map_or(|state| match state {
-                                settings::Simulation::Sawtooth(props) => Some(props),
+                                settings::Simulation::Sawtooth(props) => Some(props.as_mut()),
                                 _ => None,
                             }),
                             props,
                         ),
                         settings::Simulation::Sine(props) => render_sine_editor(
                             &setter.map_or(|state| match state {
-                                settings::Simulation::Sine(props) => Some(props),
+                                settings::Simulation::Sine(props) => Some(props.as_mut()),
                                 _ => None,
                             }),
                             props,
                         ),
                         settings::Simulation::Wave(props) => render_wave_editor(
                             &setter.map_or(|state| match state {
-                                settings::Simulation::Wave(props) => Some(props),
+                                settings::Simulation::Wave(props) => Some(props.as_mut()),
                                 _ => None,
                             }),
                             props,
