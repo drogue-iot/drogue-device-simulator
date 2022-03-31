@@ -27,7 +27,7 @@ where
     html!(<>
         <FormSection title="Parameters">
             { setter_field(setter, "Amplitude", props.amplitude.0, | state, v| state.amplitude = v.into() )}
-            { setter_field(setter,"Period", humantime::Duration::from(props.period),  |state, v| state.period = v.into() ) }
+            { setter_field(setter, "Period", humantime::Duration::from(props.period),  |state, v| state.period = v.into() ) }
             { setter_field(setter, "Length", humantime::Duration::from(props.length), |state, v| state.length = v.into() ) }
         </FormSection>
 

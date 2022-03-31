@@ -11,7 +11,11 @@ pub trait FieldType: Sized {
     fn base_validator() -> Option<Validator<String, ValidationResult>> {
         Some(Validator::from(|ctx: ValidationContext<String>| {
             if ctx.value.is_empty() {
-                ValidationResult::error("Value must not be empty")
+                if Self::required() {
+                    ValidationResult::error("Value must not be empty")
+                } else {
+                    ValidationResult::ok()
+                }
             } else {
                 if let Err(err) = Self::parse(&ctx.value) {
                     ValidationResult::error(err.to_string())
