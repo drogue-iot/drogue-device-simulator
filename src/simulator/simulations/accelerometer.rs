@@ -37,9 +37,9 @@ impl Sensor {
         let state = Rc::new(RwLock::new(None));
         let callback_state = state.clone();
 
-        let listener = Closure::wrap(Box::new(move |e: DeviceOrientationEvent| {
-            log::debug!("Device event: {e:?}");
+        Self::update_state(&ctx, None, &target);
 
+        let listener = Closure::wrap(Box::new(move |e: DeviceOrientationEvent| {
             let details = if let Some(state) = Self::make_state(&e) {
                 ctx.publisher().publish_feature(
                     target.channel.clone(),
@@ -55,7 +55,7 @@ impl Sensor {
             if let Ok(mut lock) = callback_state.write() {
                 *lock = details.clone();
             }
-            AccelerometerSimulation::update_state(&ctx, details, &target);
+            Self::update_state(&ctx, details, &target);
         }) as Box<dyn Fn(DeviceOrientationEvent)>);
 
         if let Some(cb) = listener.as_ref().dyn_ref() {
@@ -63,6 +63,7 @@ impl Sensor {
                 .add_event_listener_with_callback("deviceorientation", cb)
                 .ok();
         }
+
         Self { listener, state }
     }
 
@@ -75,12 +76,11 @@ impl Sensor {
         }
     }
 
-    pub fn details(&self) -> Option<Html> {
-        if let Ok(state) = self.state.read() {
-            state.clone()
-        } else {
-            None
-        }
+    fn update_state(ctx: &Context, details: Option<Html>, target: &FeatureTarget) {
+        ctx.update(SimulationState {
+            description: target.describe("Accelerometer"),
+            html: details.unwrap_or_else(|| default_details()),
+        });
     }
 }
 
@@ -121,14 +121,10 @@ impl Generator for AccelerometerSimulation {
                 self.sensor = Some(Sensor::new(ctx.clone(), self.properties.target.clone()));
             }
         }
-
-        self.send_state();
     }
 
     fn start(&mut self, ctx: Context) {
         self.sensor = Some(Sensor::new(ctx.clone(), self.properties.target.clone()));
-        self.ctx = Some(ctx);
-        self.send_state();
     }
 
     fn stop(&mut self) {
@@ -137,29 +133,10 @@ impl Generator for AccelerometerSimulation {
     }
 }
 
-impl AccelerometerSimulation {
-    fn send_state(&mut self) {
-        if let Some(ctx) = &mut self.ctx {
-            Self::update_state(
-                ctx,
-                self.sensor.as_ref().and_then(Sensor::details),
-                &self.properties.target,
-            );
-        }
-    }
-
-    fn update_state(ctx: &Context, details: Option<Html>, target: &FeatureTarget) {
-        ctx.update(SimulationState {
-            description: target.describe("Accelerometer"),
-            html: details.unwrap_or_else(|| default_details()),
-        });
-    }
-}
-
 fn default_details() -> Html {
     html!(
         <Content>
-            { "No accelerometer data received from browser. This migth be due to fact that your browser does not have access to an accelerometer. Most desktop browsers don't have one." }
+            { "No accelerometer data received from browser. This might be due to fact that your browser does not have access to an accelerometer. Most desktop browsers don't have one." }
         </Content>
     )
 }
