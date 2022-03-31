@@ -14,7 +14,7 @@ use std::{
     fmt::{Display, Formatter},
     time::Duration,
 };
-use strum::{EnumDiscriminants, EnumIter, EnumMessage};
+use strum::{EnumDiscriminants, EnumIter, EnumMessage, EnumString};
 
 pub const DEFAULT_CONFIG_KEY: &str = "drogue.io/device-simulator/defaultConfiguration";
 
@@ -32,7 +32,7 @@ pub struct Settings {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(rename_all = "camelCase")]
-#[strum_discriminants(derive(strum::Display, EnumMessage, EnumIter))]
+#[strum_discriminants(derive(strum::Display, EnumMessage, EnumIter, EnumString))]
 pub enum Simulation {
     #[strum_discriminants(strum(message = "Simple sine wave generator",))]
     Sine(Box<simulations::sine::Properties>),
@@ -46,13 +46,7 @@ pub enum Simulation {
 
 impl Simulation {
     pub fn to_json(&self) -> Value {
-        match self {
-            Self::Wave(props) => serde_json::to_value(props.as_ref()),
-            Self::Sawtooth(props) => serde_json::to_value(props.as_ref()),
-            Self::Sine(props) => serde_json::to_value(props.as_ref()),
-            Self::Accelerometer(props) => serde_json::to_value(props.as_ref()),
-        }
-        .unwrap_or_default()
+        serde_json::to_value(&self).unwrap_or_default()
     }
 
     pub fn to_claims(&self) -> Vec<Claim> {
@@ -165,7 +159,7 @@ pub enum Credentials {
     UsernamePassword { username: String, password: String },
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, EnumString)]
 pub enum Protocol {
     Http,
     Mqtt,

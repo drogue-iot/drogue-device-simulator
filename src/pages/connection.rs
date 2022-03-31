@@ -3,6 +3,7 @@ use crate::pages::ApplicationPage;
 use crate::settings::{Credentials, Protocol, Settings, Target};
 use patternfly_yew::*;
 use std::fmt::{Display, Formatter};
+use strum::EnumString;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -25,7 +26,7 @@ pub struct Connection {
     refs: Refs,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, EnumString)]
 enum CredentialsType {
     None,
     Password,

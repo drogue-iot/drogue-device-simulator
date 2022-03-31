@@ -13,7 +13,7 @@ use num_traits::ToPrimitive;
 use patternfly_yew::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use wasm_bindgen::{prelude::*, JsCast};
 use wasm_bindgen_futures::spawn_local;
 use web_sys::DeviceOrientationEvent;
@@ -221,7 +221,7 @@ impl Generator for AccelerometerSimulation {
     }
 
     fn start(&mut self, ctx: Context) {
-        let (tx, mut rx) = mpsc::unbounded::<Msg>();
+        let (tx, rx) = mpsc::unbounded::<Msg>();
 
         let sensor = Sensor::new(tx.into());
 

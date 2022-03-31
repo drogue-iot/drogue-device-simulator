@@ -69,6 +69,7 @@ impl Component for Add {
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Selected(sel) => {
+                log::info!("Selected: {sel}");
                 self.content = sel.make_default();
                 self.validate();
             }
