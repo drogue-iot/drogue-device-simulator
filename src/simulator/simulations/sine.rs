@@ -47,8 +47,6 @@ impl TickState for State {
 
 pub struct SineGenerator;
 
-const DEFAULT_FEATURE: &str = "sine";
-
 impl TickedGenerator for SineGenerator {
     type Properties = Properties;
     type State = State;
@@ -68,20 +66,20 @@ impl TickedGenerator for SineGenerator {
     }
 
     fn make_claims(properties: &Self::Properties) -> Vec<Claim> {
-        properties.target.claims(DEFAULT_FEATURE)
+        properties.target.claims()
     }
 
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {
         let value = sin(now * (TAU / state.length)) * state.amplitude;
 
         ctx.update(SimulationState {
-            description: state.target.describe("Sine", DEFAULT_FEATURE),
-            html: details([&("Timestamp", now), &("Value", value)]),
+            description: state.target.describe("Sine"),
+            html: details([("Timestamp", now), ("Value", value)]),
         });
 
         ctx.publisher().publish_single(
             &state.target.channel,
-            state.target.feature.as_deref().unwrap_or(DEFAULT_FEATURE),
+            &state.target.feature,
             &state.target.property,
             value,
         );

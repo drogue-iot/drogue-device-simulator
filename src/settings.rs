@@ -1,6 +1,9 @@
-use crate::simulator::simulations::{sawtooth, wave};
+use crate::simulator::simulations::accelerometer;
 use crate::simulator::{
-    simulations::{self, sine, SimulationFactory, SingleTarget},
+    simulations::{
+        self, default_channel, default_feature, default_value_property, sawtooth, sine, wave,
+        SimulationFactory, SingleTarget,
+    },
     Claim,
 };
 use gloo_storage::{LocalStorage, Storage};
@@ -37,6 +40,8 @@ pub enum Simulation {
     Sawtooth(Box<simulations::sawtooth::Properties>),
     #[strum_discriminants(strum(message = "Wave generator",))]
     Wave(Box<simulations::wave::Properties>),
+    #[strum_discriminants(strum(message = "Accelerometer",))]
+    Accelerometer(Box<simulations::accelerometer::Properties>),
 }
 
 impl Simulation {
@@ -45,6 +50,7 @@ impl Simulation {
             Self::Wave(props) => serde_json::to_value(props.as_ref()),
             Self::Sawtooth(props) => serde_json::to_value(props.as_ref()),
             Self::Sine(props) => serde_json::to_value(props.as_ref()),
+            Self::Accelerometer(props) => serde_json::to_value(props.as_ref()),
         }
         .unwrap_or_default()
     }
@@ -86,6 +92,9 @@ impl SimulationDiscriminants {
                 period: default_period(),
                 target: Default::default(),
             })),
+            Self::Accelerometer => Simulation::Accelerometer(Box::new(accelerometer::Properties {
+                target: Default::default(),
+            })),
         }
     }
 }
@@ -107,9 +116,9 @@ impl Default for Settings {
                     length: Duration::from_secs(60),
                     period: Duration::from_secs(1),
                     target: SingleTarget{
-                        channel: "state".to_string(),
-                        feature: None,
-                        property: "value".to_string()
+                        channel: default_channel(),
+                        feature: default_feature(),
+                        property: default_value_property(),
                     }
                 })));
                 s

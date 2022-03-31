@@ -1,10 +1,49 @@
 use super::*;
+use crate::settings::Simulation;
+use crate::simulator::simulations::accelerometer;
 use crate::{
     edit::Setter,
     simulator::simulations::{sawtooth, sine, wave},
 };
 use patternfly_yew::*;
 use yew::prelude::*;
+
+/// Render the editor for a simulation.
+pub fn render_editor<S>(simulation: &Simulation, setter: S) -> Html
+where
+    S: Setter<Simulation>,
+{
+    match simulation {
+        Simulation::Sawtooth(props) => render_sawtooth_editor(
+            &setter.map_or(|state| match state {
+                Simulation::Sawtooth(props) => Some(props.as_mut()),
+                _ => None,
+            }),
+            props,
+        ),
+        Simulation::Sine(props) => render_sine_editor(
+            &setter.map_or(|state| match state {
+                Simulation::Sine(props) => Some(props.as_mut()),
+                _ => None,
+            }),
+            props,
+        ),
+        Simulation::Wave(props) => render_wave_editor(
+            &setter.map_or(|state| match state {
+                Simulation::Wave(props) => Some(props.as_mut()),
+                _ => None,
+            }),
+            props,
+        ),
+        Simulation::Accelerometer(props) => render_accelerometer_editor(
+            &setter.map_or(|state| match state {
+                Simulation::Accelerometer(props) => Some(props.as_mut()),
+                _ => None,
+            }),
+            props,
+        ),
+    }
+}
 
 pub fn render_sawtooth_editor<S>(setter: &S, props: &sawtooth::Properties) -> Html
 where
@@ -47,5 +86,14 @@ where
             { setter_field(setter, "Lengths", props.lengths.clone(),  |state, v| state.lengths = v) }
         </FormSection>
         { edit_target(&setter.map(|props|&mut props.target), &props.target) }
+    </>)
+}
+
+pub fn render_accelerometer_editor<S>(setter: &S, props: &accelerometer::Properties) -> Html
+where
+    S: Setter<accelerometer::Properties>,
+{
+    html!(<>
+        { edit_feature_target(&setter.map(|props|&mut props.target), &props.target) }
     </>)
 }

@@ -39,7 +39,7 @@ where
     }
 }
 
-pub fn details<'d, const N: usize>(details: [&dyn ToDetail; N]) -> Html {
+pub fn details<'d, D: ToDetail + Sized, const N: usize>(details: [D; N]) -> Html {
     html!(
         <Form>
           { for details.into_iter().map(|details|{

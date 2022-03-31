@@ -46,8 +46,6 @@ impl TickState for State {
 
 pub struct SawtoothGenerator;
 
-const DEFAULT_FEATURE: &str = "sawtooth";
-
 impl TickedGenerator for SawtoothGenerator {
     type Properties = Properties;
     type State = State;
@@ -65,20 +63,20 @@ impl TickedGenerator for SawtoothGenerator {
     }
 
     fn make_claims(properties: &Self::Properties) -> Vec<Claim> {
-        properties.target.claims(DEFAULT_FEATURE)
+        properties.target.claims()
     }
 
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {
         let value = (now * 1000.0 / state.length) % state.max;
 
         ctx.update(SimulationState {
-            description: state.target.describe("Sawtooth", DEFAULT_FEATURE),
-            html: details([&("Timestamp", now), &("Value", value)]),
+            description: state.target.describe("Sawtooth"),
+            html: details([("Timestamp", now), ("Value", value)]),
         });
 
         ctx.publisher().publish_single(
             &state.target.channel,
-            state.target.feature.as_deref().unwrap_or(DEFAULT_FEATURE),
+            &state.target.feature,
             &state.target.property,
             value,
         );

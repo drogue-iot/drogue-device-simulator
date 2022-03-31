@@ -46,8 +46,6 @@ impl TickState for State {
 
 pub struct WaveGenerator;
 
-const DEFAULT_FEATURE: &str = "wave";
-
 impl TickedGenerator for WaveGenerator {
     type Properties = Properties;
     type State = State;
@@ -71,7 +69,7 @@ impl TickedGenerator for WaveGenerator {
     }
 
     fn make_claims(properties: &Self::Properties) -> Vec<Claim> {
-        properties.target.claims(DEFAULT_FEATURE)
+        properties.target.claims()
     }
 
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {
@@ -82,13 +80,13 @@ impl TickedGenerator for WaveGenerator {
         }
 
         ctx.update(SimulationState {
-            description: state.target.describe("Wave", DEFAULT_FEATURE),
-            html: details([&("Timestamp", now), &("Value", value)]),
+            description: state.target.describe("Wave"),
+            html: details([("Timestamp", now), ("Value", value)]),
         });
 
         ctx.publisher().publish_single(
             &state.target.channel,
-            state.target.feature.as_deref().unwrap_or(DEFAULT_FEATURE),
+            &state.target.feature,
             &state.target.property,
             value,
         );

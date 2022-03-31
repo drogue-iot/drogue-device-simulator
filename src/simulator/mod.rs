@@ -387,7 +387,6 @@ impl Simulator {
 
         let sim_id = id.clone();
         let ctx = simulations::Context::new(
-            id.clone(),
             self.link.callback(Msg::PublishEvent),
             self.link
                 .callback(move |state| Msg::SimulationState(sim_id.clone(), state)),
@@ -451,7 +450,7 @@ impl Simulator {
                 let entry = self.data.0.entry(channel.clone());
                 let state = match entry {
                     Entry::Vacant(e) => {
-                        let mut features = HashMap::new();
+                        let mut features = BTreeMap::new();
                         features.insert(state.name, state.state);
                         let state = ChannelState { features };
                         e.insert(state.clone());
@@ -555,13 +554,13 @@ impl Simulator {
 }
 
 impl Publisher for Callback<PublishEvent> {
-    fn publish(&mut self, event: PublishEvent) {
+    fn publish(&self, event: PublishEvent) {
         self.emit(event);
     }
 }
 
 impl SimulatorStateUpdate for Callback<SimulationState> {
-    fn state(&mut self, state: SimulationState) {
+    fn state(&self, state: SimulationState) {
         self.emit(state)
     }
 }

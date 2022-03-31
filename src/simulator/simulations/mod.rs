@@ -1,15 +1,16 @@
+pub mod accelerometer;
 pub mod sawtooth;
 pub mod sine;
 pub mod tick;
 pub mod wave;
 
+mod context;
+
+pub use context::*;
+
 use crate::{
     settings::Simulation,
-    simulator::{
-        publish::{Publisher, SimulatorStateUpdate},
-        simulations::tick::TickedGenerator,
-        Claim,
-    },
+    simulator::{simulations::tick::TickedGenerator, Claim},
 };
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
@@ -24,8 +25,8 @@ pub struct SingleTarget {
     #[serde(default = "default_channel")]
     pub channel: String,
 
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub feature: Option<String>,
+    #[serde(default = "default_feature")]
+    pub feature: String,
 
     #[serde(default = "default_value_property")]
     pub property: String,
@@ -35,71 +36,99 @@ impl Default for SingleTarget {
     fn default() -> Self {
         Self {
             channel: default_channel(),
-            feature: None,
+            feature: default_feature(),
             property: default_value_property(),
         }
     }
 }
 
 impl SingleTarget {
-    pub fn describe(&self, label: &str, default_feature: &str) -> SimulationDescription {
+    #[allow(unused)]
+    pub fn new<C, F, P>(channel: C, feature: F, property: P) -> Self
+    where
+        C: Into<String>,
+        F: Into<String>,
+        P: Into<String>,
+    {
+        Self {
+            channel: channel.into(),
+            feature: feature.into(),
+            property: property.into(),
+        }
+    }
+
+    pub fn describe(&self, label: &str) -> SimulationDescription {
         SimulationDescription {
             label: format!(
-                "{} ({}/{})",
-                label,
-                self.channel,
-                self.feature.as_deref().unwrap_or(default_feature)
+                "{} ({}/{}/{})",
+                label, self.channel, self.feature, self.property,
             ),
         }
     }
 
-    pub fn claims(&self, default_feature: &str) -> Vec<Claim> {
+    pub fn claims(&self) -> Vec<Claim> {
         vec![Claim::Property {
             channel: self.channel.clone(),
-            feature: self
-                .feature
-                .as_deref()
-                .unwrap_or(default_feature)
-                .to_string(),
+            feature: self.feature.clone(),
             property: self.property.clone(),
         }]
     }
 }
 
-fn default_channel() -> String {
-    "state".into()
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct FeatureTarget {
+    #[serde(default = "default_channel")]
+    pub channel: String,
+    #[serde(default = "default_feature")]
+    pub feature: String,
 }
 
-fn default_value_property() -> String {
-    "value".into()
+impl Default for FeatureTarget {
+    fn default() -> Self {
+        Self {
+            channel: default_channel(),
+            feature: default_feature(),
+        }
+    }
 }
 
-pub struct Context {
-    pub id: String,
-    publisher: Box<dyn Publisher>,
-    updater: Box<dyn SimulatorStateUpdate>,
-}
-
-impl Context {
-    pub fn new<P, U>(id: String, publisher: P, updater: U) -> Self
+impl FeatureTarget {
+    #[allow(unused)]
+    pub fn new<C, F>(channel: C, feature: F) -> Self
     where
-        P: Publisher + 'static,
-        U: SimulatorStateUpdate + 'static,
+        C: Into<String>,
+        F: Into<String>,
     {
         Self {
-            id,
-            publisher: Box::new(publisher),
-            updater: Box::new(updater),
+            channel: channel.into(),
+            feature: feature.into(),
         }
     }
 
-    pub fn publisher(&mut self) -> &mut dyn Publisher {
-        self.publisher.as_mut()
+    pub fn describe(&self, label: &str) -> SimulationDescription {
+        SimulationDescription {
+            label: format!("{} ({}/{})", label, self.channel, self.feature,),
+        }
     }
 
-    pub fn update(&mut self, state: SimulationState) {
-        self.updater.state(state)
+    pub fn claims(&self) -> Vec<Claim> {
+        vec![Claim::Feature {
+            channel: self.channel.clone(),
+            feature: self.feature.clone(),
+        }]
     }
+}
+
+pub fn default_channel() -> String {
+    "state".into()
+}
+
+pub fn default_feature() -> String {
+    "feature".into()
+}
+
+pub fn default_value_property() -> String {
+    "value".into()
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -161,6 +190,9 @@ impl SimulationFactory for Simulation {
                 Box::new(sawtooth::SawtoothGenerator::new(props.as_ref().clone()))
             }
             Simulation::Wave(props) => Box::new(wave::WaveGenerator::new(props.as_ref().clone())),
+            Simulation::Accelerometer(props) => Box::new(
+                accelerometer::AccelerometerSimulation::new(props.as_ref().clone()),
+            ),
         }
     }
 }

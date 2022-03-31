@@ -131,7 +131,7 @@ impl Component for Add {
 
                             { self.render_type(ctx) }
 
-                            { self.render_properties(ctx) }
+                            { render_editor(&self.content, ContextSetter::from((ctx, Msg::Set))) }
 
                             <ActionGroup>
                                 <Button
@@ -227,37 +227,9 @@ impl Add {
         }))
     }
 
-    /// Render the properties of the selected type
-    fn render_properties(&self, ctx: &Context<Self>) -> Html {
-        let setter = ContextSetter::from((ctx, Msg::Set));
-        match &self.content {
-            Simulation::Sawtooth(props) => render_sawtooth_editor(
-                &setter.map_or(|state| match state {
-                    Simulation::Sawtooth(props) => Some(props.as_mut()),
-                    _ => None,
-                }),
-                props,
-            ),
-            Simulation::Sine(props) => render_sine_editor(
-                &setter.map_or(|state| match state {
-                    Simulation::Sine(props) => Some(props.as_mut()),
-                    _ => None,
-                }),
-                props,
-            ),
-            Simulation::Wave(props) => render_wave_editor(
-                &setter.map_or(|state| match state {
-                    Simulation::Wave(props) => Some(props.as_mut()),
-                    _ => None,
-                }),
-                props,
-            ),
-        }
-    }
-
     fn validate(&mut self) {
         let claims = self.content.to_claims();
-        self.validation_result = if self.simulator_state.claims.is_claimed_any(&claims, None) {
+        self.validation_result = if self.simulator_state.claims.is_claimed_any(claims, None) {
             Some(FormAlert {
                 r#type: Type::Warning,
                 title: "Conflicting claims".into(),

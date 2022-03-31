@@ -195,29 +195,7 @@ impl Simulation {
                 onvalidated={ctx.link().callback(Msg::ValidationState)}
                 >
                 if let Some(sim) = self.settings.simulations.get(&self.simulation_id) {
-                    {match sim {
-                        settings::Simulation::Sawtooth(props) => render_sawtooth_editor(
-                            &setter.map_or(|state| match state {
-                                settings::Simulation::Sawtooth(props) => Some(props.as_mut()),
-                                _ => None,
-                            }),
-                            props,
-                        ),
-                        settings::Simulation::Sine(props) => render_sine_editor(
-                            &setter.map_or(|state| match state {
-                                settings::Simulation::Sine(props) => Some(props.as_mut()),
-                                _ => None,
-                            }),
-                            props,
-                        ),
-                        settings::Simulation::Wave(props) => render_wave_editor(
-                            &setter.map_or(|state| match state {
-                                settings::Simulation::Wave(props) => Some(props.as_mut()),
-                                _ => None,
-                            }),
-                            props,
-                        ),
-                    }}
+                    { render_editor(&sim, setter) }
                 }
 
                 <ActionGroup>
@@ -251,7 +229,7 @@ impl Simulation {
         self.validation_result = if self
             .simulator_state
             .claims
-            .is_claimed_any(&claims, Some(&self.simulation_id))
+            .is_claimed_any(claims, Some(&self.simulation_id))
         {
             Some(FormAlert {
                 r#type: Type::Warning,
