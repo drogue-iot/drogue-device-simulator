@@ -1,5 +1,5 @@
 use super::*;
-use crate::simulator::generators::SingleTarget;
+use crate::simulator::simulations::SingleTarget;
 
 pub fn edit_target<S>(setter: &S, target: &SingleTarget) -> Html
 where

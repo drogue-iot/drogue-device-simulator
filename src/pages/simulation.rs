@@ -1,14 +1,16 @@
-use crate::app::AppRoute;
-use crate::data::{SharedDataBridge, SharedDataOps};
-use crate::edit::*;
-use crate::settings;
-use crate::settings::Settings;
-use crate::simulator::generators::SimulationFactory;
-use crate::simulator::{generators::SimulationState, Response, SimulatorBridge, SimulatorState};
+use crate::{
+    app::AppRoute,
+    data::{SharedDataBridge, SharedDataOps},
+    edit::*,
+    settings::{self, Settings},
+    simulator::{
+        simulations::{SimulationFactory, SimulationState},
+        Response, SimulatorBridge, SimulatorState,
+    },
+};
 use patternfly_yew::*;
 use yew::prelude::*;
-use yew_router::agent::RouteRequest;
-use yew_router::prelude::*;
+use yew_router::{agent::RouteRequest, prelude::*};
 
 #[derive(Switch, Debug, Clone, PartialEq, Eq)]
 pub enum SimulationDetails {

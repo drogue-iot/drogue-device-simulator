@@ -1,25 +1,28 @@
 use super::default_period;
-use crate::simulator::generators::{
-    tick::{TickState, TickedGenerator},
-    Context, SimulationState, SingleTarget,
-};
-use crate::simulator::publish::PublisherExt;
-use crate::simulator::Claim;
-use crate::utils::{
-    float::{ApproxF64, Zero},
-    ui::details,
+use crate::{
+    simulator::{
+        publish::PublisherExt,
+        simulations::{
+            tick::{TickState, TickedGenerator},
+            Context, SimulationState, SingleTarget,
+        },
+        Claim,
+    },
+    utils::{
+        float::{ApproxF64, Zero},
+        ui::details,
+    },
 };
 use js_sys::Math::sin;
-use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::{f64::consts::TAU, time::Duration};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Properties {
-    pub amplitude: ApproxF64<Zero, 2>,
+    pub lengths: Vec<ApproxF64<Zero, 2>>,
+    pub amplitudes: Vec<ApproxF64<Zero, 2>>,
 
-    #[serde(with = "humantime_serde")]
-    pub length: Duration,
+    pub offset: ApproxF64<Zero, 2>,
 
     #[serde(default = "default_period", with = "humantime_serde")]
     pub period: Duration,
@@ -29,8 +32,8 @@ pub struct Properties {
 }
 
 pub struct State {
-    pub amplitude: f64,
-    pub length: f64,
+    pub offset: f64,
+    pub parameters: Vec<[f64; 2]>,
     pub period: Duration,
     pub target: SingleTarget,
 }
@@ -41,11 +44,11 @@ impl TickState for State {
     }
 }
 
-pub struct SineGenerator;
+pub struct WaveGenerator;
 
-const DEFAULT_FEATURE: &str = "sine";
+const DEFAULT_FEATURE: &str = "wave";
 
-impl TickedGenerator for SineGenerator {
+impl TickedGenerator for WaveGenerator {
     type Properties = Properties;
     type State = State;
 
@@ -53,11 +56,15 @@ impl TickedGenerator for SineGenerator {
         properties: &Self::Properties,
         _current_state: Option<Self::State>,
     ) -> Self::State {
-        let length = properties.length.as_millis().to_f64().unwrap_or(f64::MAX);
-        let amplitude = properties.amplitude.0;
         Self::State {
-            length,
-            amplitude,
+            parameters: properties
+                .lengths
+                .iter()
+                .map(|v| v.0)
+                .zip(properties.amplitudes.iter().map(|v| v.0))
+                .map(|(l, a)| [l, a])
+                .collect(),
+            offset: properties.offset.0,
             period: properties.period,
             target: properties.target.clone(),
         }
@@ -68,10 +75,14 @@ impl TickedGenerator for SineGenerator {
     }
 
     fn tick(now: f64, state: &mut Self::State, ctx: &mut Context) {
-        let value = sin(now * (TAU / state.length)) * state.amplitude;
+        let mut value = state.offset;
+
+        for [l, a] in &state.parameters {
+            value += sin(now * (TAU / l)) * a;
+        }
 
         ctx.update(SimulationState {
-            description: state.target.describe("Sine", DEFAULT_FEATURE),
+            description: state.target.describe("Wave", DEFAULT_FEATURE),
             html: details([&("Timestamp", now), &("Value", value)]),
         });
 

@@ -3,10 +3,14 @@ pub mod sine;
 pub mod tick;
 pub mod wave;
 
-use crate::settings::Simulation;
-use crate::simulator::generators::tick::TickedGenerator;
-use crate::simulator::publish::{Publisher, SimulatorStateUpdate};
-use crate::simulator::Claim;
+use crate::{
+    settings::Simulation,
+    simulator::{
+        publish::{Publisher, SimulatorStateUpdate},
+        simulations::tick::TickedGenerator,
+        Claim,
+    },
+};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use yew::Html;
@@ -122,13 +126,13 @@ pub trait Generator {
     fn stop(&mut self);
 }
 
-pub trait GeneratorHandler {
+pub trait SimulationHandler {
     fn start(&mut self, ctx: Context);
     fn stop(&mut self);
     fn claims(&self) -> &[Claim];
 }
 
-impl<G> GeneratorHandler for G
+impl<G> SimulationHandler for G
 where
     G: Generator,
 {
@@ -146,11 +150,11 @@ where
 }
 
 pub trait SimulationFactory {
-    fn create(&self) -> Box<dyn GeneratorHandler>;
+    fn create(&self) -> Box<dyn SimulationHandler>;
 }
 
 impl SimulationFactory for Simulation {
-    fn create(&self) -> Box<dyn GeneratorHandler> {
+    fn create(&self) -> Box<dyn SimulationHandler> {
         match self {
             Simulation::Sine(props) => Box::new(sine::SineGenerator::new(props.clone())),
             Simulation::Sawtooth(props) => {

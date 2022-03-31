@@ -1,7 +1,8 @@
-use crate::simulator::generators::{Context, Generator};
-use crate::simulator::Claim;
-use futures::channel::mpsc;
-use futures::{select, FutureExt, SinkExt, StreamExt};
+use crate::simulator::{
+    simulations::{Context, Generator},
+    Claim,
+};
+use futures::{channel::mpsc, select, FutureExt, SinkExt, StreamExt};
 use gloo_timers::future::TimeoutFuture;
 use js_sys::Date;
 use num_traits::ToPrimitive;

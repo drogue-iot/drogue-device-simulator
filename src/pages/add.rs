@@ -5,7 +5,7 @@ use crate::{
     pages::{ApplicationPage, SimulationDetails},
     settings::{Settings, Simulation},
     simulator::{
-        generators::{sawtooth, sine, wave, SimulationFactory},
+        simulations::{sawtooth, sine, wave, SimulationFactory},
         Claim, SimulatorBridge, SimulatorState,
     },
     utils::to_yaml,

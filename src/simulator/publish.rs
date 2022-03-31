@@ -1,4 +1,4 @@
-use crate::simulator::generators::SimulationState;
+use crate::simulator::simulations::SimulationState;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;

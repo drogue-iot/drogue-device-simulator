@@ -1,10 +1,18 @@
 use super::default_period;
-use crate::simulator::generators::tick::{TickState, TickedGenerator};
-use crate::simulator::generators::{Context, SimulationState, SingleTarget};
-use crate::simulator::publish::PublisherExt;
-use crate::simulator::Claim;
-use crate::utils::float::{ApproxF64, Zero};
-use crate::utils::ui::details;
+use crate::{
+    simulator::{
+        publish::PublisherExt,
+        simulations::{
+            tick::{TickState, TickedGenerator},
+            Context, SimulationState, SingleTarget,
+        },
+        Claim,
+    },
+    utils::{
+        float::{ApproxF64, Zero},
+        ui::details,
+    },
+};
 use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;

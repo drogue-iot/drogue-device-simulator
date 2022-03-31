@@ -1,4 +1,4 @@
-use crate::simulator::generators::{self, sine, SingleTarget};
+use crate::simulator::simulations::{self, sine, SingleTarget};
 use gloo_storage::{LocalStorage, Storage};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -22,9 +22,9 @@ pub struct Settings {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Simulation {
-    Sine(generators::sine::Properties),
-    Sawtooth(generators::sawtooth::Properties),
-    Wave(generators::wave::Properties),
+    Sine(simulations::sine::Properties),
+    Sawtooth(simulations::sawtooth::Properties),
+    Wave(simulations::wave::Properties),
 }
 
 impl Default for Settings {

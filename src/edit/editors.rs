@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     edit::Setter,
-    simulator::generators::{sawtooth, sine, wave},
+    simulator::simulations::{sawtooth, sine, wave},
 };
 use patternfly_yew::*;
 use yew::prelude::*;

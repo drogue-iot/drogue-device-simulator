@@ -1,19 +1,20 @@
 mod claims;
-pub mod generators;
 mod mqtt;
 mod publish;
+pub mod simulations;
 
 pub use claims::*;
 
-use crate::simulator::generators::{GeneratorHandler, SimulationFactory};
 use crate::{
     connector::mqtt::QoS,
     data::{self, SharedDataBridge},
     settings::{Credentials, Settings, Target},
     simulator::{
-        generators::{SimulationDescription, SimulationState},
         mqtt::MqttConnector,
         publish::{ChannelState, PublishEvent, Publisher, SimulatorStateUpdate},
+        simulations::{
+            SimulationDescription, SimulationFactory, SimulationHandler, SimulationState,
+        },
     },
 };
 use chrono::{DateTime, Utc};
@@ -64,7 +65,7 @@ pub struct Event {
     pub payload: Vec<u8>,
 }
 
-pub type GeneratorId = String;
+pub type SimulatorId = String;
 
 pub struct Simulator {
     link: AgentLink<Self>,
@@ -79,11 +80,11 @@ pub struct Simulator {
     commands: Vec<Command>,
     events: Vec<Event>,
 
-    simulations: HashMap<GeneratorId, Box<dyn GeneratorHandler>>,
+    simulations: HashMap<SimulatorId, Box<dyn SimulationHandler>>,
     data: InternalState,
 
-    sim_subs: BTreeMap<GeneratorId, Vec<HandlerId>>,
-    sim_states: BTreeMap<GeneratorId, SimulationState>,
+    sim_subs: BTreeMap<SimulatorId, Vec<HandlerId>>,
+    sim_states: BTreeMap<SimulatorId, SimulationState>,
 
     internal_subs: Vec<HandlerId>,
 }
@@ -96,7 +97,7 @@ pub enum Msg {
     Disconnected(String),
     Command(Command),
     PublishEvent(PublishEvent),
-    SimulationState(GeneratorId, SimulationState),
+    SimulationState(SimulatorId, SimulationState),
 }
 
 pub enum Request {
@@ -380,12 +381,12 @@ impl Simulator {
     fn add_generator(
         &mut self,
         id: String,
-        mut generator: Box<dyn GeneratorHandler>,
-    ) -> GeneratorId {
+        mut generator: Box<dyn SimulationHandler>,
+    ) -> SimulatorId {
         // start
 
         let sim_id = id.clone();
-        let ctx = generators::Context::new(
+        let ctx = simulations::Context::new(
             id.clone(),
             self.link.callback(Msg::PublishEvent),
             self.link
@@ -409,7 +410,7 @@ impl Simulator {
         id
     }
 
-    fn remove_generator(&mut self, id: &GeneratorId) {
+    fn remove_generator(&mut self, id: &SimulatorId) {
         self.state.simulations.remove(id);
         self.state.claims.remove(id);
 
