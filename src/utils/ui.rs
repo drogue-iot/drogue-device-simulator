@@ -39,7 +39,11 @@ where
     }
 }
 
-pub fn details<'d, D: ToDetail + Sized, const N: usize>(details: [D; N]) -> Html {
+pub fn details<'d, D, I>(details: I) -> Html
+where
+    D: ToDetail + Sized,
+    I: IntoIterator<Item = D>,
+{
     html!(
         <Form>
           { for details.into_iter().map(|details|{

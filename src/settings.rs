@@ -93,6 +93,7 @@ impl SimulationDiscriminants {
                 target: Default::default(),
             })),
             Self::Accelerometer => Simulation::Accelerometer(Box::new(accelerometer::Properties {
+                delay: default_period(),
                 target: Default::default(),
             })),
         }
