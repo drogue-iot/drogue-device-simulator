@@ -94,6 +94,9 @@ where
     S: Setter<accelerometer::Properties>,
 {
     html!(<>
+        <FormSection title="Parameters">
+            { setter_field(setter, "Delay", humantime::Duration::from(props.delay), | state, v| state.delay = v.into() )}
+        </FormSection>
         { edit_feature_target(&setter.map(|props|&mut props.target), &props.target) }
     </>)
 }
