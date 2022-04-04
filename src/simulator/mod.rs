@@ -5,6 +5,7 @@ pub mod simulations;
 
 pub use claims::*;
 
+use crate::simulator::publish::PayloadFormat;
 use crate::{
     connector::mqtt::QoS,
     data::{self, SharedDataBridge},
@@ -441,9 +442,7 @@ impl Simulator {
     fn publish(&mut self, event: PublishEvent) {
         match event {
             PublishEvent::Full { channel, state } => {
-                if let Ok(payload) = serde_json::to_vec(&state) {
-                    self.publish_raw(&channel, payload);
-                }
+                self.publish_channel_state(&channel, &state);
                 self.data.0.insert(channel, state);
             }
             PublishEvent::Single { channel, state } => {
@@ -470,7 +469,7 @@ impl Simulator {
     }
 
     fn publish_channel_state(&mut self, channel: &str, state: &ChannelState) {
-        if let Ok(payload) = serde_json::to_vec(&state) {
+        if let Ok(payload) = state.to_payload(PayloadFormat::JsonCompact) {
             self.publish_raw(&channel, payload);
         }
     }

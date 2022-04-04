@@ -1,7 +1,12 @@
 use crate::simulator::simulations::SimulationState;
 use serde::Serialize;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::collections::BTreeMap;
+
+#[derive(Clone, Copy, Debug)]
+pub enum PayloadFormat {
+    JsonCompact,
+}
 
 /// The device state.
 ///
@@ -17,6 +22,23 @@ use std::collections::BTreeMap;
 #[derive(Clone, Debug, Serialize)]
 pub struct ChannelState {
     pub features: BTreeMap<String, Feature>,
+}
+
+impl ChannelState {
+    pub fn to_payload(&self, format: PayloadFormat) -> anyhow::Result<Vec<u8>> {
+        match format {
+            PayloadFormat::JsonCompact => {
+                let features: BTreeMap<String, BTreeMap<String, Value>> = self
+                    .features
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.properties.clone()))
+                    .collect();
+
+                let value = json!({ "features": features });
+                Ok(serde_json::to_vec(&value)?)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -80,6 +102,7 @@ impl PublisherExt for &dyn Publisher {
             },
         })
     }
+
     fn publish_single<C, F, P, V>(self, channel: C, feature: F, property: P, value: V)
     where
         C: Into<String>,
