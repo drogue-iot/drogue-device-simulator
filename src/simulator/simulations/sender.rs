@@ -171,6 +171,7 @@ where
                 },
                 () = timer => {
                     f(&tx, &ctx, &config, &state);
+                    next += delay;
                     timer = TimeoutFuture::new(INFINITY).fuse();
                 }
             }
