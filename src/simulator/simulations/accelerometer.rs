@@ -139,6 +139,12 @@ impl Sender {
         let mut next = Date::now();
         let mut timer = TimeoutFuture::new(INFINITY).fuse();
 
+        // send an initial state
+
+        self.send(&target, &state);
+
+        // now loop
+
         loop {
             select! {
                 msg = self.rx.next() => match msg {
