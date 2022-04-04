@@ -144,18 +144,20 @@ impl Generator for SliderSimulation {
                 ctx.update(SimulationState {
                     description: config.target.describe("Slider"),
                     html: html!(
-                        <>
+                        <div>
                             <div>
                                 { details([(
                                     "Value", state,
                                 )]) }
                             </div>
-                            <Slider
-                                min={&config.min}
-                                max={&config.max}
-                                {onchange}
-                                />
-                        </>
+                        <Slider
+                            suppress_initial_change=true
+                            min={&config.min}
+                            max={&config.max}
+                            value={*state}
+                            {onchange}
+                            />
+                        </div>
                     ),
                 });
             },
