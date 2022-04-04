@@ -59,7 +59,7 @@ web-sys = { version = "0.3", features = [
 ] }
 
 [patch.crates-io]
-patternfly-yew = { git = "https://github.com/ctron/patternfly-yew", rev = "428b85bcf202a5467ae1316798d92b07e8395300" }
+patternfly-yew = { git = "https://github.com/ctron/patternfly-yew", rev = "d6830d5ef0bd28b47e657c0d383b7741eb62b6ff" }
 #patternfly-yew = { path = "../patternfly-yew" }
 
 [dev-dependencies]
