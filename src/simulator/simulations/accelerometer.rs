@@ -1,15 +1,13 @@
 use crate::simulator::{
     publish::PublisherExt,
-    simulations::{default_period, Context, FeatureTarget, Generator, SimulationState},
+    simulations::{
+        default_period, Context, FeatureTarget, Generator, Sender, SenderConfiguration,
+        SenderHandle, SimulationState,
+    },
     Claim,
 };
 use crate::utils::ui::details;
-use futures::channel::mpsc::{self, UnboundedReceiver, UnboundedSender};
-use futures::{select, FutureExt, SinkExt, StreamExt};
-use gloo_timers::future::TimeoutFuture;
 use gloo_utils::window;
-use js_sys::Date;
-use num_traits::ToPrimitive;
 use patternfly_yew::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -28,13 +26,18 @@ pub struct Properties {
     pub target: FeatureTarget,
 }
 
+impl SenderConfiguration for Properties {
+    fn delay(&self) -> Duration {
+        self.delay
+    }
+}
+
 pub struct AccelerometerSimulation {
     claims: Vec<Claim>,
     properties: Properties,
-    ctx: Option<Context>,
 
     sensor: Option<Sensor>,
-    tx: Option<UnboundedSender<Msg>>,
+    tx: Option<SenderHandle<State, Properties>>,
 }
 
 struct Sensor {
@@ -70,12 +73,12 @@ impl From<DeviceOrientationEvent> for State {
 }
 
 impl Sensor {
-    pub fn new(tx: UnboundedSender<Msg>) -> Self {
+    pub fn new(tx: SenderHandle<State, Properties>) -> Self {
         let listener = Closure::wrap(Box::new(move |e: DeviceOrientationEvent| {
             let state = State::from(e);
             let mut tx = tx.clone();
             spawn_local(async move {
-                tx.send(Msg::Update(state)).await.ok();
+                tx.update(state).await.ok();
             });
         }) as Box<dyn FnMut(DeviceOrientationEvent)>);
 
@@ -101,99 +104,6 @@ impl Drop for Sensor {
     }
 }
 
-pub enum Msg {
-    Update(State),
-    Configure(Properties),
-}
-
-struct Sender {
-    rx: UnboundedReceiver<Msg>,
-    ctx: Context,
-    target: FeatureTarget,
-    delay: Duration,
-}
-
-impl Sender {
-    pub fn new(
-        rx: UnboundedReceiver<Msg>,
-        ctx: Context,
-        target: FeatureTarget,
-        delay: Duration,
-    ) -> Self {
-        Self {
-            rx,
-            ctx,
-            target,
-            delay,
-        }
-    }
-
-    pub async fn run(mut self) {
-        let mut target = self.target.clone();
-        let mut delay = self.delay.as_millis().to_f64().unwrap_or(f64::MAX);
-
-        // internally this is a i32, so infinity is i32::MAX, but as u32
-        const INFINITY: u32 = i32::MAX as u32;
-
-        let mut state = State::None;
-        let mut next = Date::now();
-        let mut timer = TimeoutFuture::new(INFINITY).fuse();
-
-        // send an initial state
-
-        self.send(&target, &state);
-
-        // now loop
-
-        loop {
-            select! {
-                msg = self.rx.next() => match msg {
-                    Some(Msg::Update(s)) => {
-                        state = s;
-                        let now = Date::now();
-                        let rem = next - now;
-                        if rem < 0f64 {
-                            self.send(&target, &state);
-                            next = now + delay;
-                        }  else {
-                            timer = TimeoutFuture::new(rem.to_u32().unwrap_or(INFINITY)).fuse();
-                        }
-                    }
-                    Some(Msg::Configure(properties)) => {
-                        target = properties.target;
-                        delay = properties.delay.as_millis().to_f64().unwrap_or(f64::MAX);
-                    }
-                    None => {
-                        self.rx.close();
-                        break;
-                    }
-                },
-                () = timer => {
-                    self.send(&target, &state);
-                    timer = TimeoutFuture::new(INFINITY).fuse();
-                }
-            }
-        }
-    }
-
-    fn send(&self, target: &FeatureTarget, state: &State) {
-        let properties = state.to_properties();
-        if let Some(properties) = &properties {
-            self.ctx.publisher().publish_feature(
-                &target.channel,
-                &target.feature,
-                properties.clone(),
-            );
-        }
-        self.ctx.update(SimulationState {
-            description: target.describe("Accelerometer"),
-            html: properties
-                .map(|s| details(s))
-                .unwrap_or_else(|| default_details()),
-        });
-    }
-}
-
 impl Generator for AccelerometerSimulation {
     type Properties = Properties;
 
@@ -202,7 +112,6 @@ impl Generator for AccelerometerSimulation {
         Self {
             claims,
             properties,
-            ctx: None,
             sensor: None,
             tx: None,
         }
@@ -219,7 +128,7 @@ impl Generator for AccelerometerSimulation {
             if let Some(tx) = &mut self.tx {
                 let mut tx = tx.clone();
                 spawn_local(async move {
-                    if let Err(err) = tx.send(Msg::Configure(properties)).await {
+                    if let Err(err) = tx.configure(properties).await {
                         log::warn!("Failed to update configuration: {err}");
                     }
                 })
@@ -228,27 +137,39 @@ impl Generator for AccelerometerSimulation {
     }
 
     fn start(&mut self, ctx: Context) {
-        let (tx, rx) = mpsc::unbounded::<Msg>();
-
-        let sensor = Sensor::new(tx.into());
-
-        let sender = Sender::new(
-            rx,
-            ctx.clone(),
-            self.properties.target.clone(),
-            self.properties.delay,
+        let (tx, sender) = Sender::new(
+            ctx,
+            self.properties.clone(),
+            State::None,
+            |_, ctx, config, state| {
+                let properties = state.to_properties();
+                if let Some(properties) = &properties {
+                    ctx.publisher().publish_feature(
+                        &config.target.channel,
+                        &config.target.feature,
+                        properties.clone(),
+                    );
+                }
+                ctx.update(SimulationState {
+                    description: config.target.describe("Accelerometer"),
+                    html: properties
+                        .map(|s| details(s))
+                        .unwrap_or_else(|| default_details()),
+                });
+            },
         );
-        spawn_local(async move { sender.run().await });
 
+        sender.start();
+
+        let sensor = Sensor::new(tx.clone().into());
+
+        self.tx = Some(tx);
         self.sensor = Some(sensor);
-        self.ctx = Some(ctx);
     }
 
     fn stop(&mut self) {
-        self.sensor.take();
-        if let Some(tx) = self.tx.take() {
-            tx.close_channel();
-        }
+        self.sensor = None;
+        self.tx = None;
     }
 }
 

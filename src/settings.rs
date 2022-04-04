@@ -1,8 +1,8 @@
-use crate::simulator::simulations::accelerometer;
+use crate::simulator::simulations::slider::Step;
 use crate::simulator::{
     simulations::{
-        self, default_channel, default_feature, default_value_property, sawtooth, sine, wave,
-        SimulationFactory, SingleTarget,
+        self, accelerometer, default_channel, default_feature, default_value_property, sawtooth,
+        sine, slider, wave, SimulationFactory, SingleTarget,
     },
     Claim,
 };
@@ -42,6 +42,8 @@ pub enum Simulation {
     Wave(Box<simulations::wave::Properties>),
     #[strum_discriminants(strum(message = "Accelerometer",))]
     Accelerometer(Box<simulations::accelerometer::Properties>),
+    #[strum_discriminants(strum(message = "Slider",))]
+    Slider(Box<simulations::slider::Properties>),
 }
 
 impl Simulation {
@@ -89,6 +91,18 @@ impl SimulationDiscriminants {
             Self::Accelerometer => Simulation::Accelerometer(Box::new(accelerometer::Properties {
                 delay: default_period(),
                 target: Default::default(),
+            })),
+            Self::Slider => Simulation::Slider(Box::new(slider::Properties {
+                delay: default_period(),
+                target: Default::default(),
+                min: Step::WithLabel {
+                    value: 0f64.into(),
+                    label: "0%".to_string(),
+                },
+                max: Step::WithLabel {
+                    value: 100f64.into(),
+                    label: "100%".to_string(),
+                },
             })),
         }
     }

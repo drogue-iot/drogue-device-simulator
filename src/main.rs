@@ -1,8 +1,6 @@
 #![recursion_limit = "1024"]
 #![allow(clippy::needless_return)]
 
-extern crate core;
-
 mod app;
 mod connector;
 mod data;

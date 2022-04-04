@@ -129,6 +129,7 @@ impl Component for Simulation {
             self.simulator
                 .unsubscribe_simulation(self.simulation_id.clone());
             self.simulation_id = ctx.props().id.clone();
+            self.state = Default::default();
             self.simulator
                 .subscribe_simulation(self.simulation_id.clone());
         }

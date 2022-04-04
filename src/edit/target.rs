@@ -1,7 +1,7 @@
 use super::*;
 use crate::simulator::simulations::{FeatureTarget, SingleTarget};
 
-pub fn edit_target<S>(setter: &S, target: &SingleTarget) -> Html
+pub fn edit_single_target<S>(setter: &S, target: &SingleTarget) -> Html
 where
     S: Setter<SingleTarget>,
 {

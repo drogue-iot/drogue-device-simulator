@@ -1,12 +1,15 @@
 pub mod accelerometer;
 pub mod sawtooth;
 pub mod sine;
+pub mod slider;
 pub mod tick;
 pub mod wave;
 
 mod context;
+mod sender;
 
 pub use context::*;
+pub use sender::*;
 
 use crate::{
     settings::Simulation,
@@ -193,6 +196,9 @@ impl SimulationFactory for Simulation {
             Simulation::Accelerometer(props) => Box::new(
                 accelerometer::AccelerometerSimulation::new(props.as_ref().clone()),
             ),
+            Simulation::Slider(props) => {
+                Box::new(slider::SliderSimulation::new(props.as_ref().clone()))
+            }
         }
     }
 }
