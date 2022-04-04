@@ -1,8 +1,7 @@
-use crate::simulator::simulations::slider::Step;
 use crate::simulator::{
     simulations::{
         self, accelerometer, default_channel, default_feature, default_value_property, sawtooth,
-        sine, slider, wave, SimulationFactory, SingleTarget,
+        sine, slider, slider::Step, wave, SimulationFactory, SingleTarget,
     },
     Claim,
 };
@@ -28,6 +27,24 @@ pub struct Settings {
 
     #[serde(default)]
     pub simulations: BTreeMap<String, Simulation>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub import: Option<Import>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Import {
+    /// Give a hint to the user to tweak the connection settings.
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub hint_connection: bool,
+    /// Allow overriding the hint message
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hint_text: Option<String>,
+}
+
+fn is_default<T: Default + Eq>(value: &T) -> bool {
+    value == &T::default()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
@@ -131,7 +148,8 @@ impl Default for Settings {
                     }
                 })));
                 s
-            }
+            },
+            import: None,
         }
     }
 }

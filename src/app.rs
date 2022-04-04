@@ -5,6 +5,7 @@ use patternfly_yew::*;
 use url::Url;
 use yew::prelude::*;
 use yew::virtual_dom::VChild;
+use yew_router::agent::RouteRequest;
 use yew_router::prelude::*;
 
 use crate::pages;
@@ -63,6 +64,7 @@ impl Component for Application {
 
 pub enum Msg {
     InitError(Toast),
+    InitNotice(Toast),
 
     Settings(Settings),
     Simulator(SimulatorState),
@@ -88,7 +90,24 @@ impl Component for ApplicationView {
         let mut _settings_agent = SharedDataBridge::from(ctx.link(), Msg::Settings);
 
         match cfg {
-            Ok(Some(cfg)) => {
+            Ok(Some((cfg, source))) => {
+                match source {
+                    Source::External => {
+                        if let Some(import) = &cfg.import {
+                            if import.hint_connection {
+                                let text = import.hint_text.as_deref().unwrap_or("The configuration was imported from the URL linking to this instance. Please check that the connection parameters are valid or update them accordingly.");
+                                ctx.link().send_message(Msg::InitNotice(Toast {
+                                    title: "Configuration imported".to_string(),
+                                    r#type: Type::Info,
+                                    timeout: None,
+                                    body: html!( <Content> { text } </Content> ),
+                                    actions: vec![],
+                                }));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
                 _settings_agent.set(cfg);
             }
             Ok(None) => {
@@ -113,6 +132,12 @@ impl Component for ApplicationView {
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::InitError(toast) => ToastDispatcher::new().toast(toast),
+            Msg::InitNotice(toast) => {
+                ToastDispatcher::new().toast(toast);
+                RouteAgentDispatcher::new().send(RouteRequest::ChangeRoute(Route::<()>::from(
+                    AppRoute::Connection,
+                )));
+            }
             Msg::Settings(settings) => {
                 self.settings = settings;
             }
@@ -225,7 +250,12 @@ impl Component for ApplicationView {
     }
 }
 
-fn find_config() -> Result<Option<Settings>, Toast> {
+pub enum Source {
+    Storage,
+    External,
+}
+
+fn find_config() -> Result<Option<(Settings, Source)>, Toast> {
     if let Some(cfg) = find_config_str() {
         log::info!("Found provided settings");
         match base64::decode_config(&cfg, base64::URL_SAFE)
@@ -238,7 +268,7 @@ fn find_config() -> Result<Option<Settings>, Toast> {
                     )
                 })
             }) {
-            Ok(settings) => Ok(Some(settings)),
+            Ok(settings) => Ok(Some((settings, Source::External))),
             Err(err) => Err(Toast {
                 title: "Failed to load configuration".to_string(),
                 r#type: Type::Danger,
@@ -257,7 +287,7 @@ fn find_config() -> Result<Option<Settings>, Toast> {
     } else if let Some(settings) = Settings::load() {
         log::info!("Found default settings");
         match settings {
-            Ok(settings) => Ok(Some(settings)),
+            Ok(settings) => Ok(Some((settings, Source::Storage))),
             Err(err) => Err(Toast {
                 title: "Failed to load configuration".to_string(),
                 r#type: Type::Danger,
