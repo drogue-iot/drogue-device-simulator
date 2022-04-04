@@ -129,7 +129,7 @@ impl Generator for SliderSimulation {
         let (handle, sender) = Sender::new(
             ctx.clone(),
             self.properties.clone(),
-            0f64,
+            self.properties.min.value(),
             |handle, ctx, config, state| {
                 ctx.publisher().publish_single(
                     &config.target.channel,
