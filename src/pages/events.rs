@@ -138,7 +138,7 @@ to show up here.
                             </ToolbarItem>
                         </ToolbarGroup>
                         <ToolbarItem modifiers={[ToolbarElementModifier::Right.all()]}>
-                            <strong>{"Commands received: "}{self.total_received}</strong>
+                            <strong>{"Events published: "}{self.total_received}</strong>
                         </ToolbarItem>
                     </Toolbar>
 
