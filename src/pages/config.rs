@@ -1,7 +1,7 @@
 use crate::data::{SharedDataBridge, SharedDataOps};
 use crate::pages::ApplicationPage;
 use crate::settings::{Settings, DEFAULT_CONFIG_KEY};
-use crate::utils::monaco::to_yaml_model;
+use crate::utils::monaco::{to_model, to_yaml_model};
 use anyhow::anyhow;
 use gloo_storage::{LocalStorage, Storage};
 use gloo_utils::window;
@@ -35,6 +35,7 @@ pub enum Msg {
     Apply,
     Share,
     Store,
+    Recover,
 }
 
 impl Component for Configuration {
@@ -67,6 +68,10 @@ impl Component for Configuration {
                         Ok(settings) => {
                             log::info!("Apply settings");
                             self.settings_agent.set(settings);
+                            toast_success(
+                                "Applied configuration",
+                                "Configuration has been applied to the simulator.",
+                            );
                         }
                         Err(err) => toast_err("Failed to parse settings", err),
                     }
@@ -79,6 +84,10 @@ impl Component for Configuration {
 
             Msg::Store => {
                 self.store();
+            }
+
+            Msg::Recover => {
+                self.recover();
             }
         }
         true
@@ -115,6 +124,11 @@ impl Component for Configuration {
                                     label="Set as default"
                                     variant={Variant::Secondary}
                                     onclick={ctx.link().callback(|_|Msg::Store)}
+                                />
+                                <Button
+                                    label="Recover stored"
+                                    variant={Variant::Secondary}
+                                    onclick={ctx.link().callback(|_|Msg::Recover)}
                                 />
                             </ActionGroup>
                         </Form>
@@ -195,20 +209,51 @@ impl Configuration {
         }
     }
 
+    fn recover(&mut self) {
+        if let Some(cfg) = Settings::load_raw() {
+            self.yaml = match serde_json::from_str::<Value>(&cfg) {
+                Ok(value) => {
+                    ToastDispatcher::new().toast(Toast {
+                        title: "Configuration recovered".to_string(),
+                        r#type: Default::default(),
+                        timeout: None,
+                        body: html!(
+                            <Content>
+                                { "The configuration has been loaded from the local storage, parsed as JSON and is not available in the editor in the YAML format. However, it is not applied." }
+                            </Content>
+                        ),
+                        ..Default::default()
+                    });
+                    to_yaml_model(&value).ok()
+                }
+                Err(err) => {
+                    ToastDispatcher::new().toast(Toast {
+                        title: "Configuration recovered".to_string(),
+                        r#type: Default::default(),
+                        timeout: None,
+                        body: html!(
+                            <Content>
+                                <p>
+                                    { "The configuration has been loaded from the local storage. However it could not be parsed as valid JSON due to the following error:" }
+                                </p>
+                                <p> { err } </p>
+                            </Content>
+                        ),
+                        ..Default::default()
+                    });
+                    to_model(Some("json"), cfg).ok()
+                }
+            };
+        }
+    }
+
     fn do_store(&self) -> anyhow::Result<()> {
         LocalStorage::set(DEFAULT_CONFIG_KEY, self.as_json_str()?)?;
 
-        ToastDispatcher::new().toast(Toast {
-            title: "Stored default".to_string(),
-            r#type: Type::Success,
-            timeout: Some(Duration::from_secs(5)),
-            body: html!(
-                <Content>
-                    { "Configuration has been stored as the new default." }
-                </Content>
-            ),
-            actions: vec![],
-        });
+        toast_success(
+            "Stored default",
+            "Configuration has been stored as the new default.",
+        );
 
         Ok(())
     }
@@ -225,8 +270,26 @@ where
         timeout: None,
         body: html!(
             <div>
-                <code>{err.to_string()}</code>
+                <code>{ err }</code>
             </div>
+        ),
+        actions: vec![],
+    });
+}
+
+fn toast_success<S, T>(title: S, message: T)
+where
+    S: Into<String>,
+    T: ToString,
+{
+    ToastDispatcher::new().toast(Toast {
+        title: title.into(),
+        r#type: Type::Success,
+        timeout: Some(Duration::from_secs(5)),
+        body: html!(
+            <Content>
+                { message }
+            </Content>
         ),
         actions: vec![],
     });

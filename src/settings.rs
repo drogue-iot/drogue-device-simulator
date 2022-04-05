@@ -159,6 +159,10 @@ impl Settings {
         let json: Option<String> = LocalStorage::get(DEFAULT_CONFIG_KEY).ok();
         json.map(|json| serde_json::from_str(&json).map_err(|err| anyhow::Error::new(err)))
     }
+
+    pub fn load_raw() -> Option<String> {
+        LocalStorage::get(DEFAULT_CONFIG_KEY).ok()
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
