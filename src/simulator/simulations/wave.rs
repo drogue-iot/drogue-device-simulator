@@ -13,13 +13,15 @@ use crate::{
         ui::details,
     },
 };
+use humantime_serde::Serde;
 use js_sys::Math::sin;
+use num_traits::ToPrimitive;
 use serde::{Deserialize, Serialize};
 use std::{f64::consts::TAU, time::Duration};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Properties {
-    pub lengths: Vec<ApproxF64<Zero, 2>>,
+    pub lengths: Vec<Serde<Duration>>,
     pub amplitudes: Vec<ApproxF64<Zero, 2>>,
 
     pub offset: ApproxF64<Zero, 2>,
@@ -58,7 +60,7 @@ impl TickedGenerator for WaveGenerator {
             parameters: properties
                 .lengths
                 .iter()
-                .map(|v| v.0)
+                .map(|v| v.as_millis().to_f64().unwrap_or(f64::MAX))
                 .zip(properties.amplitudes.iter().map(|v| v.0))
                 .map(|(l, a)| [l, a])
                 .collect(),

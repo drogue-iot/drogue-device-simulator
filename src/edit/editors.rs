@@ -4,7 +4,9 @@ use crate::{
     settings::Simulation,
     simulator::simulations::{accelerometer, sawtooth, sine, slider, wave},
 };
+use humantime_serde::Serde;
 use patternfly_yew::*;
+use std::{ops::Deref, time::Duration};
 use yew::prelude::*;
 
 /// Render the editor for a simulation.
@@ -89,7 +91,15 @@ where
             { setter_field(setter, "Offset", props.offset.0, | state, v| state.offset = v.into() ) }
             { setter_field(setter, "Period", humantime::Duration::from(props.period), |state, v| state.period = v.into()) }
             { setter_field(setter, "Amplitudes", props.amplitudes.clone(), |state, v| state.amplitudes = v) }
-            { setter_field(setter, "Lengths", props.lengths.clone(),  |state, v| state.lengths = v) }
+            { setter_field(
+                setter, "Lengths",
+                props
+                    .lengths.iter()
+                    .map(|l|humantime::Duration::from(l.deref().clone())).collect::<Vec<_>>(), 
+                |state, v| state.lengths = v.into_iter().map(|l|{
+                    let l: Duration = l.into();
+                    Serde::from(l)
+                }).collect()) }
         </FormSection>
         { edit_single_target(&setter.map(|props|&mut props.target), &props.target) }
     </>)
