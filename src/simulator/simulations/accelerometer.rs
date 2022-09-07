@@ -7,7 +7,7 @@ use crate::simulator::{
     Claim,
 };
 use crate::utils::ui::details;
-use gloo_utils::window;
+use gloo_utils::{format::JsValueSerdeExt, window};
 use patternfly_yew::*;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
