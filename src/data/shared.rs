@@ -1,10 +1,9 @@
-use std::fmt::Debug;
 use std::{
     collections::HashSet,
+    fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use yew::html::Scope;
-use yew::{Callback, Component};
+use yew::{html::Scope, Callback, Component};
 use yew_agent::*;
 
 pub struct SharedDataHolder<T>

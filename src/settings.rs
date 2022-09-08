@@ -1,3 +1,4 @@
+use crate::simulator::simulations::led_matrix;
 use crate::simulator::{
     simulations::{
         self, accelerometer, default_channel, default_feature, default_value_property, sawtooth,
@@ -26,10 +27,27 @@ pub struct Settings {
     pub device: String,
 
     #[serde(default)]
+    pub payload: Payload,
+
+    #[serde(default)]
     pub simulations: BTreeMap<String, Simulation>,
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub import: Option<Import>,
+}
+
+#[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Payload {
+    pub format: PayloadFormat,
+}
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PayloadFormat {
+    #[default]
+    JsonCompact,
+    Doppelgaenger,
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,6 +79,8 @@ pub enum Simulation {
     Accelerometer(Box<simulations::accelerometer::Properties>),
     #[strum_discriminants(strum(message = "Slider",))]
     Slider(Box<simulations::slider::Properties>),
+    #[strum_discriminants(strum(message = "Led matrix",))]
+    LedMatrix(Box<simulations::led_matrix::Properties>),
 }
 
 impl Simulation {
@@ -121,6 +141,11 @@ impl SimulationDiscriminants {
                     label: "100%".to_string(),
                 },
             })),
+            Self::LedMatrix => Simulation::LedMatrix(Box::new(led_matrix::Properties {
+                target: Default::default(),
+                color: Default::default(),
+                color_off: Default::default(),
+            })),
         }
     }
 }
@@ -135,6 +160,7 @@ impl Default for Settings {
             },
             application: "my-application".into(),
             device: "my-device".into(),
+            payload: Default::default(),
             simulations: {
                 let mut s = BTreeMap::new();
                 s.insert("sine1".to_string(), Simulation::Sine(Box::new(sine::Properties{

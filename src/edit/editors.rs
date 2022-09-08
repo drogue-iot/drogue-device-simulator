@@ -1,4 +1,5 @@
 use super::*;
+use crate::simulator::simulations::led_matrix;
 use crate::{
     edit::Setter,
     settings::Simulation,
@@ -46,6 +47,13 @@ where
         Simulation::Slider(props) => render_slider_editor(
             &setter.map_or(|state| match state {
                 Simulation::Slider(props) => Some(props.as_mut()),
+                _ => None,
+            }),
+            props,
+        ),
+        Simulation::LedMatrix(props) => render_led_matrix_editor(
+            &setter.map_or(|state| match state {
+                Simulation::LedMatrix(props) => Some(props.as_mut()),
                 _ => None,
             }),
             props,
@@ -128,6 +136,19 @@ where
             { setter_field(setter, "Min (Label)", props.min.label(), | state, v| state.min.set_label(v) )}
             { setter_field(setter, "Max", props.max.value(), | state, v| state.max.set_value(v) )}
             { setter_field(setter, "Max (Label)", props.max.label(), | state, v| state.max.set_label(v) )}
+        </FormSection>
+        { edit_single_target(&setter.map(|props|&mut props.target), &props.target) }
+    </>)
+}
+
+pub fn render_led_matrix_editor<S>(setter: &S, props: &led_matrix::Properties) -> Html
+where
+    S: Setter<led_matrix::Properties>,
+{
+    html!(<>
+        <FormSection title="Parameters">
+            { setter_field(setter, "Color (On)", props.color.clone(), | state, v| state.color = v.into() ) }
+            { setter_field(setter, "Color (Off)", props.color_off.clone(), | state, v| state.color_off = v.into() ) }
         </FormSection>
         { edit_single_target(&setter.map(|props|&mut props.target), &props.target) }
     </>)

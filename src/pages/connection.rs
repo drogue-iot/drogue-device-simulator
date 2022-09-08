@@ -1,10 +1,14 @@
-use crate::data::{SharedDataBridge, SharedDataOps};
-use crate::pages::ApplicationPage;
-use crate::settings::{Credentials, Protocol, Settings, Target};
+use crate::settings::Payload;
+use crate::{
+    data::{SharedDataBridge, SharedDataOps},
+    pages::ApplicationPage,
+    settings::{Credentials, PayloadFormat, Protocol, Settings, Target},
+};
 use patternfly_yew::*;
 use std::fmt::{Display, Formatter};
+use std::time::Duration;
 use strum::EnumString;
-use web_sys::HtmlInputElement;
+use web_sys::{HtmlInputElement, HtmlSelectElement};
 use yew::prelude::*;
 
 pub struct Connection {
@@ -21,6 +25,7 @@ pub struct Connection {
     password: String,
     application: String,
     device: String,
+    payload: PayloadFormatType,
 
     // refs
     refs: Refs,
@@ -43,10 +48,19 @@ impl Display for CredentialsType {
     }
 }
 
+/// Wrapper type for working with the UI form.
+#[derive(Clone, Copy, Default, Debug, Eq, PartialEq, EnumString, strum::Display)]
+pub enum PayloadFormatType {
+    #[default]
+    JsonCompact,
+    Doppelgaenger,
+}
+
 #[derive(Clone, Default)]
 struct Refs {
     protocol: NodeRef,
     credentials: NodeRef,
+    payload: NodeRef,
 }
 
 impl ApplicationPage for Connection {
@@ -84,6 +98,7 @@ impl Component for Connection {
             password: Default::default(),
             application: Default::default(),
             device: Default::default(),
+            payload: Default::default(),
 
             refs: Default::default(),
         }
@@ -103,6 +118,13 @@ impl Component for Connection {
             }
             Msg::Apply => {
                 self.update_settings();
+                ToastDispatcher::new().toast(Toast {
+                    title: "Configuration updated".to_string(),
+                    r#type: Type::Success,
+                    timeout: Some(Duration::from_secs(5)),
+                    body: Default::default(),
+                    actions: vec![],
+                });
                 return false;
             }
         }
@@ -110,14 +132,9 @@ impl Component for Connection {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let selected_protocol = |protocol| {
-            let result = self.protocol == protocol;
-            result
-        };
-        let selected_credentials = |credentials| {
-            let result = self.credentials == credentials;
-            result
-        };
+        let selected_protocol = |protocol| self.protocol == protocol;
+        let selected_credentials = |credentials| self.credentials == credentials;
+        let selected_payload = |payload| self.payload == payload;
 
         let set_protocol = ctx
             .link()
@@ -125,6 +142,9 @@ impl Component for Connection {
         let set_credentials = ctx
             .link()
             .callback(|v| Msg::Set(Box::new(move |c| c.credentials = v)));
+        let set_payload_format = ctx
+            .link()
+            .callback(|v| Msg::Set(Box::new(move |c| c.payload = v)));
 
         let (username_disabled, password_disabled) = match self.credentials {
             CredentialsType::None => (true, true),
@@ -137,84 +157,98 @@ impl Component for Connection {
                 <Flex>
                     <FlexItem modifiers={[FlexModifier::Grow]}>
                         <Form horizontal={[FormHorizontal]} >
-                            <FormGroup
-                                required=true
-                                label={"Connection type"}>
-                                <FormSelect<Protocol> variant={SelectVariant::Single(set_protocol)} ref={self.refs.protocol.clone()}>
-                                    <FormSelectOption<Protocol> selected={selected_protocol(Protocol::Mqtt)} value={Protocol::Mqtt} description="MQTT over WebSocket"  />
-                                </FormSelect<Protocol>>
-                            </FormGroup>
+                            <FormSection title="Connection">
 
-                            <FormGroup
-                                required=true
-                                label="URL"
+                                <FormGroup
+                                    required=true
+                                    label={"Connection type"}>
+                                    <FormSelect<Protocol> variant={SelectVariant::Single(set_protocol)} ref={self.refs.protocol.clone()}>
+                                        <FormSelectOption<Protocol> selected={selected_protocol(Protocol::Mqtt)} value={Protocol::Mqtt} description="MQTT over WebSocket"  />
+                                    </FormSelect<Protocol>>
+                                </FormGroup>
+
+                                <FormGroup
+                                    required=true
+                                    label="URL"
+                                    >
+                                    <TextInput
+                                        r#type="url"
+                                        onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.url = v)))}
+                                        value={self.url.clone()}
+                                    />
+                                </FormGroup>
+
+                                <FormGroup
+                                    label="Application"
+                                    >
+                                    <TextInput
+                                        r#type="text"
+                                        onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.application = v)))}
+                                        value={self.application.clone()}
+                                    />
+                                </FormGroup>
+
+                                <FormGroup
+                                    label="Device"
+                                    >
+                                    <TextInput
+                                        r#type="text"
+                                        onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.device = v)))}
+                                        value={self.device.clone()}
+                                    />
+                                </FormGroup>
+
+                                <FormGroup
+                                    required=true
+                                    label={"Credentials type"}>
+                                    <FormSelect<CredentialsType> variant={SelectVariant::Single(set_credentials)} ref={self.refs.credentials.clone()}>
+                                        <FormSelectOption<CredentialsType> selected={selected_credentials(CredentialsType::None)} value={CredentialsType::None} />
+                                        <FormSelectOption<CredentialsType> selected={selected_credentials(CredentialsType::Password)} value={CredentialsType::Password} />
+                                        <FormSelectOption<CredentialsType> selected={selected_credentials(CredentialsType::UsernamePassword)} value={CredentialsType::UsernamePassword} />
+                                    </FormSelect<CredentialsType>>
+                                </FormGroup>
+
+                                <FormGroup
+                                    label="Username"
+                                    >
+                                    <TextInput
+                                        disabled={username_disabled}
+                                        onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.username = v)))}
+                                        value={self.username.clone()}
+                                    />
+                                </FormGroup>
+
+                                <FormGroup
+                                    label="Password"
+                                    >
+                                    <TextInput
+                                        disabled={password_disabled}
+                                        r#type="password"
+                                        onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.password = v)))}
+                                        value={self.password.clone()}
+                                    />
+                                </FormGroup>
+
+                                <FormGroup
+                                    label="Auto-connect"
+                                    >
+                                    <Switch
+                                        checked={self.auto_connect}
+                                        on_change={ctx.link().callback(|v| Msg::Set(Box::new(move |c|c.auto_connect = v)))}
+                                    />
+                                </FormGroup>
+                            </FormSection>
+
+                            <FormSection title="Payload">
+                                <FormGroup
+                                    label="Payload format"
                                 >
-                                <TextInput
-                                    r#type="url"
-                                    onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.url = v)))}
-                                    value={self.url.clone()}
-                                />
-                            </FormGroup>
-
-                            <FormGroup
-                                label="Application"
-                                >
-                                <TextInput
-                                    r#type="text"
-                                    onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.application = v)))}
-                                    value={self.application.clone()}
-                                />
-                            </FormGroup>
-
-                            <FormGroup
-                                label="Device"
-                                >
-                                <TextInput
-                                    r#type="text"
-                                    onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.device = v)))}
-                                    value={self.device.clone()}
-                                />
-                            </FormGroup>
-
-                            <FormGroup
-                                required=true
-                                label={"Credentials type"}>
-                                <FormSelect<CredentialsType> variant={SelectVariant::Single(set_credentials)} ref={self.refs.credentials.clone()}>
-                                    <FormSelectOption<CredentialsType> selected={selected_credentials(CredentialsType::None)} value={CredentialsType::None} />
-                                    <FormSelectOption<CredentialsType> selected={selected_credentials(CredentialsType::Password)} value={CredentialsType::Password} />
-                                    <FormSelectOption<CredentialsType> selected={selected_credentials(CredentialsType::UsernamePassword)} value={CredentialsType::UsernamePassword} />
-                                </FormSelect<CredentialsType>>
-                            </FormGroup>
-
-                            <FormGroup
-                                label="Username"
-                                >
-                                <TextInput
-                                    disabled={username_disabled}
-                                    onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.username = v)))}
-                                    value={self.username.clone()}
-                                />
-                            </FormGroup>
-
-                            <FormGroup
-                                label="Password"
-                                >
-                                <TextInput
-                                    disabled={password_disabled}
-                                    r#type="password"
-                                    onchange={ctx.link().callback(|v| Msg::Set(Box::new(|c|c.password = v)))}
-                                    value={self.password.clone()}
-                                />
-                            </FormGroup>
-
-                            <FormGroup
-                                label="Auto-connect"
-                                >
-                                <Switch
-                                    checked={self.auto_connect}
-                                    on_change={ctx.link().callback(|v| Msg::Set(Box::new(move |c|c.auto_connect = v)))}
-                                />
-                            </FormGroup>
+                                    <FormSelect<PayloadFormatType> variant={SelectVariant::Single(set_payload_format)} ref={self.refs.payload.clone()}>
+                                        <FormSelectOption<PayloadFormatType> description="Compact JSON" selected={selected_payload(PayloadFormatType::JsonCompact)} value={PayloadFormatType::JsonCompact} />
+                                        <FormSelectOption<PayloadFormatType> description="Doppelgänger" selected={selected_payload(PayloadFormatType::Doppelgaenger)} value={PayloadFormatType::Doppelgaenger} />
+                                    </FormSelect<PayloadFormatType>>
+                                </FormGroup>
+                            </FormSection>
 
                             <ActionGroup>
                                 <Button label={"Apply"} variant={Variant::Primary} onclick={ctx.link().callback(|_|Msg::Apply)}/>
@@ -230,6 +264,7 @@ impl Component for Connection {
 }
 
 impl Connection {
+    /// update the form from the settings
     fn sync(&mut self) {
         self.auto_connect = self.settings.auto_connect;
         self.protocol = self.settings.target.as_protocol();
@@ -260,8 +295,16 @@ impl Connection {
                 self.credentials = CredentialsType::UsernamePassword;
             }
         }
+        self.payload = match self.settings.payload.format {
+            PayloadFormat::JsonCompact => PayloadFormatType::JsonCompact,
+            PayloadFormat::Doppelgaenger => PayloadFormatType::Doppelgaenger,
+        };
+        if let Some(input) = self.refs.payload.cast::<HtmlSelectElement>() {
+            input.set_value(&self.payload.to_string());
+        }
     }
 
+    /// update the settings from the form
     fn update_settings(&mut self) {
         let protocol = self.protocol;
 
@@ -280,10 +323,18 @@ impl Connection {
         let application = self.application.clone();
         let device = self.device.clone();
 
+        let payload = Payload {
+            format: match self.payload {
+                PayloadFormatType::Doppelgaenger => PayloadFormat::Doppelgaenger,
+                PayloadFormatType::JsonCompact => PayloadFormat::JsonCompact,
+            },
+        };
+
         self.settings_agent.update(move |settings| {
             settings.auto_connect = auto_connect;
             settings.application = application;
             settings.device = device;
+            settings.payload = payload;
 
             match protocol {
                 Protocol::Http => {

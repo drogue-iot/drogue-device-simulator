@@ -1,4 +1,5 @@
 pub mod accelerometer;
+pub mod led_matrix;
 pub mod sawtooth;
 pub mod sine;
 pub mod slider;
@@ -11,6 +12,7 @@ mod sender;
 pub use context::*;
 pub use sender::*;
 
+use crate::simulator::Command;
 use crate::{
     settings::Simulation,
     simulator::{simulations::tick::TickedGenerator, Claim},
@@ -156,12 +158,22 @@ pub trait Generator {
 
     fn start(&mut self, ctx: Context);
     fn stop(&mut self);
+
+    /// Handle incoming commands
+    ///
+    /// The function will receive all commands and must filter out its own.
+    fn command(&mut self, _: &Command) {}
 }
 
 pub trait SimulationHandler {
     fn start(&mut self, ctx: Context);
     fn stop(&mut self);
     fn claims(&self) -> &[Claim];
+
+    /// Handle incoming commands
+    ///
+    /// The function will receive all commands and must filter out its own.
+    fn command(&mut self, _: &Command) {}
 }
 
 impl<G> SimulationHandler for G
@@ -178,6 +190,10 @@ where
 
     fn claims(&self) -> &[Claim] {
         Generator::claims(self)
+    }
+
+    fn command(&mut self, command: &Command) {
+        Generator::command(self, command)
     }
 }
 
@@ -198,6 +214,9 @@ impl SimulationFactory for Simulation {
             ),
             Simulation::Slider(props) => {
                 Box::new(slider::SliderSimulation::new(props.as_ref().clone()))
+            }
+            Simulation::LedMatrix(props) => {
+                Box::new(led_matrix::LedMatrixSimulation::new(props.as_ref().clone()))
             }
         }
     }

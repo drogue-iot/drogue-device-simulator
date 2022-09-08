@@ -30,3 +30,12 @@ You can also create a "share" link from inside the simulator. Which takes the co
 base64-encodes it. Adding it to the URL.
 
 When you open the device simulator, it will detect the parameter in the URL, and load this configuration instead of its internally stored, or the default configuration.
+
+## Development
+
+You will need [Rust](https://www.rust-lang.org/) and [Trunk](https://trunkrs.dev/). Once this is installed, you can go
+ahead and run:
+
+```shell
+trunk serve
+```

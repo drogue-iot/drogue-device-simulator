@@ -5,11 +5,10 @@ pub mod simulations;
 
 pub use claims::*;
 
-use crate::simulator::publish::PayloadFormat;
 use crate::{
     connector::mqtt::QoS,
     data::{self, SharedDataBridge},
-    settings::{Credentials, Settings, Target},
+    settings::{Credentials, PayloadFormat, Settings, Target},
     simulator::{
         mqtt::MqttConnector,
         publish::{ChannelState, PublishEvent, Publisher, SimulatorStateUpdate},
@@ -240,6 +239,10 @@ impl Agent for Simulator {
                 self.commands.push(command.clone());
                 let command = Rc::new(command);
 
+                for sim in self.simulations.values_mut() {
+                    sim.command(&command);
+                }
+
                 // broadcast
 
                 for id in &self.subscribers {
@@ -469,7 +472,7 @@ impl Simulator {
     }
 
     fn publish_channel_state(&mut self, channel: &str, state: &ChannelState) {
-        if let Ok(payload) = state.to_payload(PayloadFormat::JsonCompact) {
+        if let Ok(payload) = state.to_payload(self.settings.payload.format) {
             self.publish_raw(&channel, payload);
         }
     }

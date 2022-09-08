@@ -1,12 +1,7 @@
-use crate::simulator::simulations::SimulationState;
+use crate::{settings::PayloadFormat, simulator::simulations::SimulationState};
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
-
-#[derive(Clone, Copy, Debug)]
-pub enum PayloadFormat {
-    JsonCompact,
-}
 
 /// The device state.
 ///
@@ -36,6 +31,18 @@ impl ChannelState {
 
                 let value = json!({ "features": features });
                 Ok(serde_json::to_vec(&value)?)
+            }
+            PayloadFormat::Doppelgaenger => {
+                let features: BTreeMap<String, BTreeMap<String, Value>> = self
+                    .features
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.properties.clone()))
+                    .collect();
+
+                Ok(serde_json::to_vec(&json!({
+                    "partial": false,
+                    "state": features
+                }))?)
             }
         }
     }
